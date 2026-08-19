@@ -137,13 +137,25 @@ async function childrenForCurrentUser() {
         .eq('user_id', profile.id)
         .order('created_at', { ascending: true });
     const list = ensureData(data || [], error).data;
-    const decorated = (await stages()).map((stage) => stage);
+    let decorated = [];
+    try {
+        decorated = await stages();
+    } catch {
+        // A criança continua válida mesmo quando a consulta editorial de fases falha temporariamente.
+    }
     return { profile, children: list.map((child) => decorateChild(child, decorated)) };
 }
 
-async function activeChild() {
+async function childrenContext() {
     const { profile, children } = await childrenForCurrentUser();
-    return children.find((child) => child.id === profile.active_child_id) || children[0] || null;
+    return {
+        children,
+        activeChild: children.find((child) => child.id === profile.active_child_id) || children[0] || null,
+    };
+}
+
+async function activeChild() {
+    return (await childrenContext()).activeChild;
 }
 
 async function categories() {
@@ -268,7 +280,15 @@ const api = {
     async get(path, config = {}) {
         if (path === '/auth/me') return { data: await currentProfile() };
         if (path === '/children') return { data: (await childrenForCurrentUser()).children };
+        if (path === '/children/context') return { data: await childrenContext() };
         if (path === '/children/me') return { data: await activeChild() };
+        if (path === '/pwa/install-config') {
+            await currentAuthUser();
+            const { data, error } = await supabase.from('app_settings').select('value_json').eq('key', 'pwa.install_prompt_interval_days').maybeSingle();
+            if (error) throw httpError(error.message);
+            const value = Number(data?.value_json);
+            return { data: { interval_days: Number.isFinite(value) ? Math.min(365, Math.max(1, Math.round(value))) : 1 } };
+        }
         if (path === '/categories') return { data: await categories() };
         if (path === '/activities') return { data: await activities(config.params || {}) };
         if (path === '/activities/suggestions') {

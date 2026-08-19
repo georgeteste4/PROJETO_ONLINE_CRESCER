@@ -43,14 +43,15 @@ A pasta `database` contém as migrações na ordem abaixo:
 | `016_fix_notification_campaign_unique.sql` | Adiciona o índice único que torna a publicação de campanhas idempotente por campanha e usuário. |
 | `017_catalog_ids_and_content_rls.sql` | Define defaults de ID textual para categorias, fases e atividades, cria `private.is_content_staff()` e limita escrita do catálogo a `super_admin` e `editor`. |
 | `018_harden_notification_trigger.sql` | Fixa o `search_path` da função privada que atualiza notificações, removendo o alerta de segurança de função mutável. |
+| `019_pwa_install_prompt_settings.sql` | Semeia o intervalo do lembrete de instalação PWA e permite leitura autenticada somente dessa configuração não sensível. |
 
-As dezoito migrações já foram aplicadas ao projeto Supabase configurado para este frontend. O seed validado contém **5 categorias, 4 fases e 20 atividades**. Os SQLs anexados foram mantidos como referência, mas não foram executados diretamente porque usavam `password_hash`, IDs `text` e contas de teste que não são compatíveis com o Auth nativo do Supabase.
+As dezenove migrações já foram aplicadas ao projeto Supabase configurado para este frontend. O seed validado contém **5 categorias, 4 fases e 20 atividades**. Os SQLs anexados foram mantidos como referência, mas não foram executados diretamente porque usavam `password_hash`, IDs `text` e contas de teste que não são compatíveis com o Auth nativo do Supabase.
 
 ## Arquitetura de integração
 
 As telas existentes continuam usando a interface `api.get`, `api.post`, `api.put`, `api.patch` e `api.delete`, mas `src/lib/api.js` agora implementa essas operações diretamente via Supabase. Isso evita espalhar consultas pelo componente e mantém uma camada de acesso única para autenticação, crianças, atividades, favoritos, conclusões, progresso e painel administrativo.
 
-O arquivo `src/lib/supabase.js` inicializa o cliente com sessão persistente, renovação automática do token e detecção de retorno de autenticação. O `AuthContext` escuta alterações de sessão e sincroniza o perfil e a criança ativa.
+O arquivo `src/lib/supabase.js` inicializa o cliente com sessão persistente, renovação automática do token e detecção de retorno de autenticação. O `AuthContext` escuta alterações de sessão e sincroniza o perfil e a criança ativa. A resolução da criança usa um contexto único, estado explícito de carregamento e proteção contra respostas fora de ordem, evitando que uma falha transitória seja interpretada como ausência de cadastro.
 
 ## Desenvolvimento
 
@@ -93,7 +94,7 @@ A auditoria possui RLS de leitura restrito a `super_admin`; gravações de mudan
 
 ## Instalação como aplicativo
 
-O app agora possui um prompt de instalação contextual para dispositivos móveis. Em navegadores que oferecem `beforeinstallprompt`, o botão abre o diálogo nativo; em iPhone/iPad, exibe as instruções para usar Compartilhar > Adicionar à Tela de Início. O prompt respeita o modo standalone, o evento `appinstalled` e o fechamento pelo usuário. O manifest, o service worker e o `apple-touch-icon` permanecem configurados para `/PROJETO_ONLINE_CRESCER/`.
+O app agora possui um prompt de instalação contextual para dispositivos móveis, exibido somente na página Início para usuários autenticados. Em navegadores que oferecem `beforeinstallprompt`, o botão abre o diálogo nativo; em iPhone/iPad, exibe as instruções para usar Compartilhar > Adicionar à Tela de Início. O prompt respeita o modo standalone, o evento `appinstalled`, o fechamento pelo usuário e a data do último aviso armazenada localmente. O intervalo padrão é de 1 dia e pode ser alterado em `/admin/configuracoes` no bloco **Instalação do app**, entre 1 e 365 dias. O valor fica em `app_settings.pwa.install_prompt_interval_days`, com leitura limitada a usuários autenticados. O manifest, o service worker e o `apple-touch-icon` permanecem configurados para `/PROJETO_ONLINE_CRESCER/`.
 
 ## Notificações e suporte
 

@@ -152,6 +152,23 @@ Após alterar o domínio, teste pelo menos:
 | Termos | `https://app.crescebem.online/termos` |
 | Dashboard autenticado | `https://app.crescebem.online/` |
 
+## Lembrete de instalação PWA
+
+O aviso de instalação é exibido somente para usuários autenticados na página **Início**, em dispositivos móveis e quando o navegador ainda não informa que o Crescer+ está instalado. O app usa o evento nativo `beforeinstallprompt` no Android/Chromium e apresenta instruções manuais de **Compartilhar → Adicionar à Tela de Início** no iPhone/iPad.
+
+A periodicidade é controlada pelo administrador em **Administração → Configurações → Instalação do app**. O valor padrão é de **1 dia** e pode ser alterado entre 1 e 365 dias. A configuração é armazenada no Supabase em `app_settings` com a chave `pwa.install_prompt_interval_days`; usuários autenticados podem ler somente essa chave, enquanto a gravação permanece restrita aos papéis administrativos autorizados.
+
+O navegador armazena localmente a data do último aviso em `crescer:pwa-last-prompt-at`. Ao clicar em **Agora não** ou fechar o aviso, o contador começa novamente. Ao instalar, o evento `appinstalled` marca o app como instalado e o aviso deixa de aparecer. Se o usuário limpar os dados do site, o navegador poderá perder esse registro; a detecção `display-mode: standalone` continua sendo usada como proteção principal.
+
+Para alterar o intervalo:
+
+1. Acesse o painel administrativo com um papel autorizado.
+2. Abra **Configurações → Instalação do app**.
+3. Informe o número de dias desejado e salve.
+4. Teste em uma janela móvel que ainda não esteja instalada; em ambiente de desenvolvimento, limpe `localStorage` apenas se precisar repetir o aviso imediatamente.
+
+O frontend consulta a configuração pela rota interna `/pwa/install-config`, que exige sessão Supabase autenticada. Nenhuma chave privada ou tarefa agendada externa é necessária: o lembrete é determinístico, funciona no navegador e reaparece quando o usuário acessa a página Início após o intervalo configurado.
+
 ## Usar outro domínio no futuro
 
 Para trocar `app.crescebem.online` por outro subdomínio, por exemplo `staging.crescebem.online`, siga esta ordem:
