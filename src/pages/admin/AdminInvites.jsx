@@ -224,7 +224,7 @@ export default function AdminInvites() {
                         </div>
                         {error && <p className="text-sm text-destructive">{error}</p>}
                         <p className="text-xs text-ink-2">
-                            O MVP usa entrega manual: o link será gerado aqui para você copiar e compartilhar com segurança. A validade padrão pode ser ajustada em Configurações.
+                            O provedor padrão pode enviar o convite automaticamente. Se o envio falhar ou estiver no modo nativo, o link continua disponível para compartilhamento manual; a validade pode ser ajustada em Configurações.
                         </p>
                     </div>
                     <DialogFooter className="mt-4 gap-2">
@@ -250,10 +250,9 @@ export default function AdminInvites() {
                     {lastLink && (
                         <div className="space-y-3">
                             <p className="text-sm text-ink-2">
-                                                                    {lastLink.email_result?.sent
-                                        ? `E-mail enviado para ${lastLink.email}.`
-                                        : `Compartilhe manualmente o link abaixo. ${lastLink.email_result?.reason || ''}`}
-
+                                {lastLink.email_result?.sent
+                                    ? `E-mail enviado para ${lastLink.email} pelo provedor ${lastLink.email_result.provider || 'padrão'}.`
+                                    : `Compartilhe manualmente o link abaixo. ${lastLink.email_result?.reason || ''}`}
                             </p>
                             <div className="p-4 rounded-2xl bg-[#FDF6F0] flex items-center gap-3">
                                 <code data-testid="last-invite-link" className="font-mono text-xs sm:text-sm text-ink flex-1 break-all">

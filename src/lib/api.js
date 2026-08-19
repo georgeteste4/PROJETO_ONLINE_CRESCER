@@ -56,6 +56,10 @@ function appBaseUrl() {
     return `${window.location.origin}${publicUrl}`;
 }
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char] || char));
+}
+
 function decorateInvite(invite) {
     if (!invite) return invite;
     const expiresAt = new Date(invite.expires_at).getTime();
@@ -218,6 +222,26 @@ async function invokeAdminAI(payload) {
     return data?.data ?? data;
 }
 
+async function invokeEmailService(payload) {
+    const { data, error } = await supabase.functions.invoke('email-service', { body: payload });
+    if (error) throw httpError(error.message || 'Não foi possível comunicar com o serviço de e-mail.');
+    if (data?.error) throw httpError(data.error?.message || data.error);
+    return data?.data ?? data;
+}
+
+async function recordAudit(action, resource, resourceId = null, details = {}) {
+    try {
+        const { error } = await supabase.rpc('record_audit_event', { p_action: action, p_resource: resource, p_resource_id: resourceId, p_details: details });
+        if (error) console.warn('[audit]', error.message);
+    } catch (error) {
+        console.warn('[audit]', error?.message || error);
+    }
+}
+
+export async function recordAuditEvent(action, resource, resourceId = null, details = {}) {
+    return recordAudit(action, resource, resourceId, details);
+}
+
 const api = {
     async get(path, config = {}) {
         if (path === '/auth/me') return { data: await currentProfile() };
@@ -320,7 +344,7 @@ const api = {
                 topMap.set(activityId, current);
             });
 
-            return {
+            const result = {
                 data: {
                     totals: {
                         users,
@@ -339,10 +363,14 @@ const api = {
                     top_activities: Array.from(topMap.values()).sort((a, b) => b.count - a.count).slice(0, 5),
                 },
             };
+            await recordAudit('SELECT', 'admin_stats', null, { period_days: 30 });
+            return result;
         }
         if (path === '/admin/users') {
             await assertStaff();
-            return { data: await adminUsers(config.params || {}) };
+            const data = await adminUsers(config.params || {});
+            await recordAudit('SELECT', 'users', null, { count: data.length, filters: config.params || {} });
+            return { data };
         }
         if (path.startsWith('/admin/users/')) {
             await assertStaff();
@@ -360,15 +388,52 @@ const api = {
             }
             return { data: { ...user, children: children || [], completions_count } };
         }
-        if (path === '/admin/activities') return { data: await activities(config.params || {}) };
+        if (path === '/admin/activities') {
+            const data = await activities(config.params || {});
+            await recordAudit('SELECT', 'activities', null, { count: data.length, filters: config.params || {} });
+            return { data };
+        }
         if (path === '/admin/invites') {
             await assertSuperAdmin();
             const { data, error } = await supabase.from('invites').select('id, email, role, token, expires_at, invited_by_name, used, created_at').order('created_at', { ascending: false });
+            await recordAudit('SELECT', 'invites', null, { count: data?.length || 0 });
             return ensureData((data || []).map(decorateInvite), error);
         }
         if (path === '/admin/settings') {
             await assertContentStaff();
             const { data, error } = await supabase.from('app_settings').select('key, value_json, updated_by, updated_at').order('key', { ascending: true });
+            await recordAudit('SELECT', 'app_settings', null, { count: data?.length || 0 });
+            return ensureData(data || [], error);
+        }
+        if (path === '/admin/email-providers') {
+            await assertSuperAdmin();
+            const { data, error } = await supabase.from('email_providers').select('id, provider, name, enabled, from_email, from_name, reply_to, secret_env_name, config_json, last_tested_at, last_test_status, last_test_message, updated_at').order('provider', { ascending: true });
+            await recordAudit('SELECT', 'email_providers', null, { count: data?.length || 0 });
+            return ensureData(data || [], error);
+        }
+        if (path === '/admin/email-deliveries') {
+            await assertSuperAdmin();
+            const params = config.params || {};
+            const limit = Math.min(100, Math.max(1, Number(params.limit) || 40));
+            let query = supabase.from('email_deliveries').select('id, provider_id, event_type, recipient, subject, status, provider_message_id, error_message, created_at').order('created_at', { ascending: false }).limit(limit);
+            if (params.status) query = query.eq('status', params.status);
+            if (params.event_type) query = query.eq('event_type', params.event_type);
+            const { data, error } = await query;
+            await recordAudit('SELECT', 'email_deliveries', null, { count: data?.length || 0 });
+            return ensureData(data || [], error);
+        }
+        if (path === '/admin/audit-logs') {
+            await assertSuperAdmin();
+            const params = config.params || {};
+            const limit = Math.min(200, Math.max(1, Number(params.limit) || 80));
+            let query = supabase.from('audit_logs').select('id, action, resource, resource_id, actor_user_id, actor_email, actor_name, details, created_at').order('created_at', { ascending: false }).limit(limit);
+            if (params.action) query = query.eq('action', params.action);
+            if (params.resource) query = query.ilike('resource', `%${String(params.resource).replace(/[%,]/g, '')}%`);
+            if (params.actor_email) query = query.ilike('actor_email', `%${String(params.actor_email).replace(/[%,]/g, '')}%`);
+            if (params.from) query = query.gte('created_at', params.from);
+            if (params.to) query = query.lte('created_at', params.to);
+            const { data, error } = await query;
+            await recordAudit('SELECT', 'audit_logs', null, { count: data?.length || 0, filters: params });
             return ensureData(data || [], error);
         }
         if (path === '/admin/prompts') {
@@ -512,6 +577,14 @@ const api = {
             await assertContentStaff();
             return { data: await invokeAdminAI({ action: 'generate', ...payload }) };
         }
+        if (path === '/admin/email-test') {
+            await assertSuperAdmin();
+            return { data: await invokeEmailService({ action: 'test', provider: payload.provider, recipient: payload.recipient }) };
+        }
+        if (path === '/admin/email-send') {
+            await assertSuperAdmin();
+            return { data: await invokeEmailService({ action: 'send', ...payload }) };
+        }
         if (path.startsWith('/admin/ai-apply/')) {
             await assertContentStaff();
             return { data: await invokeAdminAI({ action: 'apply', job_id: path.split('/')[3] }) };
@@ -529,7 +602,18 @@ const api = {
             if (!['moderador', 'editor', 'super_admin'].includes(payload.role)) throw httpError('Selecione um papel válido.');
             const { data, error } = await supabase.from('invites').insert({ email, role: payload.role, token, expires_at, invited_by: profile.id, invited_by_name: profile.name || 'Admin' }).select('id, email, role, token, expires_at, invited_by_name, used, created_at').single();
             if (error) throw httpError(error.message);
-            return { data: { ...decorateInvite(data), email_result: { sent: false, mode: settings['invites.delivery_mode'] || 'manual', reason: 'O MVP usa compartilhamento manual do link.' } } };
+            const invite = decorateInvite(data);
+            const defaultProvider = String((await supabase.from('app_settings').select('value_json').eq('key', 'email.default_provider').maybeSingle()).data?.value_json || 'native');
+            let email_result = { sent: false, mode: 'manual', provider: defaultProvider, reason: defaultProvider === 'native' ? 'O provedor nativo depende do SMTP/Auth do Supabase; compartilhe o link manualmente.' : 'O envio automático ainda não foi executado.' };
+            if (defaultProvider !== 'native') {
+                try {
+                    const emailData = await invokeEmailService({ action: 'send', provider: defaultProvider, to: email, subject: 'Você recebeu um convite para o Crescer+', event_type: 'invite', html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#3F302C"><h1 style="color:#C9684C">Convite para o Crescer+</h1><p>${escapeHtml(profile.name || 'A equipe Crescer+')} convidou você para atuar como <strong>${escapeHtml(payload.role)}</strong>.</p><p><a href="${escapeHtml(invite.link)}" style="display:inline-block;background:#C9684C;color:#fff;padding:14px 22px;border-radius:28px;text-decoration:none">Aceitar convite</a></p><p style="font-size:12px;color:#766862">Este link expira em ${expirationDays} dia(s). Conteúdo administrativo e educativo do Crescer+.</p></div>`, text: `${profile.name || 'A equipe Crescer+'} convidou você para atuar como ${payload.role}. Acesse: ${invite.link}. Este link expira em ${expirationDays} dia(s).` });
+                    email_result = { sent: emailData.status === 'sent', mode: 'automatic', provider: emailData.provider, reason: emailData.fallback_used ? 'Enviado pelo provedor de fallback.' : 'E-mail enviado.' };
+                } catch (emailError) {
+                    email_result = { sent: false, mode: 'manual', provider: defaultProvider, reason: formatApiError(emailError.message || emailError) };
+                }
+            }
+            return { data: { ...invite, email_result } };
         }
         if (path.startsWith('/admin/users/') && path.endsWith('/reset-password')) {
             await assertStaff();
@@ -545,12 +629,34 @@ const api = {
     },
 
     async put(path, payload) {
+        if (path.startsWith('/admin/email-providers/')) {
+            const profile = await assertSuperAdmin();
+            const provider = decodeURIComponent(path.split('/')[3]);
+            if (!['native', 'resend', 'mailtrap'].includes(provider)) throw httpError('Provedor de e-mail inválido.');
+            const update = { from_email: String(payload.from_email || '').trim(), from_name: String(payload.from_name || 'Crescer+').trim(), reply_to: String(payload.reply_to || '').trim(), updated_by: profile.id, updated_at: new Date().toISOString() };
+            const { data, error } = await supabase.from('email_providers').update(update).eq('provider', provider).select('id, provider, name, enabled, from_email, from_name, reply_to, secret_env_name, config_json, last_tested_at, last_test_status, last_test_message, updated_at').single();
+            if (error) throw httpError(error.message);
+            return { data };
+        }
         if (path.startsWith('/admin/settings/')) {
             const key = decodeURIComponent(path.split('/')[3]);
-            const profile = key.startsWith('invites.') ? await assertSuperAdmin() : await assertContentStaff();
+            const profile = key.startsWith('invites.') || key.startsWith('email.') ? await assertSuperAdmin() : await assertContentStaff();
             const value_json = Object.prototype.hasOwnProperty.call(payload || {}, 'value_json') ? payload.value_json : payload?.value;
             const { data, error } = await supabase.from('app_settings').upsert({ key, value_json: value_json ?? null, updated_by: profile.id, updated_at: new Date().toISOString() }, { onConflict: 'key' }).select('key, value_json, updated_by, updated_at').single();
             return ensureData(data, error);
+        }
+        if (path === '/admin/email-provider-select') {
+            const profile = await assertSuperAdmin();
+            const provider = String(payload.provider || '');
+            if (!['native', 'resend', 'mailtrap'].includes(provider)) throw httpError('Provedor de e-mail inválido.');
+            const target = await supabase.from('email_providers').select('id, provider').eq('provider', provider).single();
+            if (target.error) throw httpError(target.error.message);
+            const { error: disableError } = await supabase.from('email_providers').update({ enabled: false, updated_by: profile.id, updated_at: new Date().toISOString() }).neq('provider', provider);
+            if (disableError) throw httpError(disableError.message);
+            const { data, error } = await supabase.from('email_providers').update({ enabled: true, updated_by: profile.id, updated_at: new Date().toISOString() }).eq('provider', provider).select('id, provider, enabled').single();
+            if (error) throw httpError(error.message);
+            await supabase.from('app_settings').upsert({ key: 'email.default_provider', value_json: provider, updated_by: profile.id, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+            return { data };
         }
         if (path.startsWith('/admin/prompts/')) {
             const profile = await assertContentStaff();

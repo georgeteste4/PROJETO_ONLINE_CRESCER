@@ -34,8 +34,11 @@ A pasta `database` contém as migrações na ordem abaixo:
 | `007_admin_settings_ai_generation.sql` | Configurações editoriais, prompts versionáveis e histórico de jobs de geração em lote, todos protegidos por RLS de staff. |
 | `008_invites_configuration_and_acceptance.sql` | Validade configurável, modo de entrega manual, gestão de convites restrita a super_admin e RPC transacional de aceite/promoção. |
 | `009_grant_invite_policy_helper.sql` | Permissão mínima para a função auxiliar usada pela policy RLS de convites. |
+| `010_email_providers_and_audit.sql` | Provedores nativo/Resend/Mailtrap, registros de entrega, auditoria por triggers e RPC segura de leitura. |
+| `011_audit_user_activity.sql` | Amplia a auditoria para conclusões, favoritos e consentimentos do usuário. |
+| `012_harden_audit_redaction.sql` | Remove dados pessoais desnecessários dos detalhes dos logs. |
 
-As nove migrações já foram aplicadas ao projeto Supabase configurado para este frontend. O seed validado contém **5 categorias, 4 fases e 20 atividades**. Os SQLs anexados foram mantidos como referência, mas não foram executados diretamente porque usavam `password_hash`, IDs `text` e contas de teste que não são compatíveis com o Auth nativo do Supabase.
+As doze migrações já foram aplicadas ao projeto Supabase configurado para este frontend. O seed validado contém **5 categorias, 4 fases e 20 atividades**. Os SQLs anexados foram mantidos como referência, mas não foram executados diretamente porque usavam `password_hash`, IDs `text` e contas de teste que não são compatíveis com o Auth nativo do Supabase.
 
 ## Arquitetura de integração
 
@@ -66,9 +69,29 @@ A Edge Function `admin-ai` foi publicada no projeto Supabase com JWT obrigatóri
 
 Os modelos compatíveis são filtrados pelo catálogo do OpenRouter usando `supported_parameters` com `structured_outputs` ou `response_format`. O resultado deve ser revisado pelo time editorial e, para conteúdo infantil, passar por curadoria profissional antes de uma escala maior.
 
+## E-mail transacional e autenticação
+
+A tela `/admin/configuracoes` agora permite selecionar `Supabase Auth nativo`, `Resend` ou `Mailtrap` como provedor padrão para convites e mensagens transacionais. O provedor de fallback também pode ser definido. As credenciais nunca são salvas em `app_settings`, `email_providers` ou no frontend: a Edge Function `email-service` espera os secrets `RESEND_API_KEY`, `MAILTRAP_API_TOKEN` e, para o Send Email Hook, `SEND_EMAIL_HOOK_SECRET`.
+
+O Resend usa `POST https://api.resend.com/emails` com Bearer token; o Mailtrap usa `POST https://send.api.mailtrap.io/api/send` com `Api-Token`. O botão **Testar** valida o provedor selecionado. O provedor nativo é deliberadamente manual na tela porque o envio é gerenciado pelo SMTP do Supabase Auth; para produção, configure SMTP customizado no projeto Supabase.
+
+Cadastro, recuperação de senha e demais e-mails nativos continuam passando pelo Supabase Auth. Para rotear esses eventos por Resend/Mailtrap, configure a Edge Function `email-service` como **Send Email Hook** em Authentication > Hooks, gere o secret do hook e defina `email.auth_hook_enabled` somente depois de concluir essa configuração. O endpoint está publicado sem JWT obrigatório porque valida a assinatura Standard Webhooks, como exige o Supabase Auth Hook.
+
+Sem as API keys do usuário, Resend/Mailtrap permanecem disponíveis para configuração, mas o teste retorna uma mensagem indicando o secret ausente; isso evita gravar credenciais de forma insegura.
+
+## Auditoria administrativa
+
+A página `/admin/auditoria` é exclusiva de `super_admin` e permite filtrar por ação (`SELECT`, `INSERT`, `UPDATE`, `DELETE`, `LOGIN`, `LOGOUT`, `SEND_EMAIL` e `SYSTEM`), recurso, e-mail do ator e período. Os triggers registram mudanças em usuários, crianças, atividades, fases, categorias, convites, configurações, provedores, conclusões, favoritas e consentimentos. Os detalhes removem campos sensíveis conhecidos, incluindo token de convite e senha.
+
+A auditoria possui RLS de leitura restrito a `super_admin`; gravações de mudanças são feitas por função `security definer` e a RPC de leituras explícitas aceita somente `SELECT`, `LOGIN` e `LOGOUT`. O endpoint de e-mail também registra entregas, falhas e uso de fallback em `email_deliveries` e `audit_logs`.
+
+## Instalação como aplicativo
+
+O app agora possui um prompt de instalação contextual para dispositivos móveis. Em navegadores que oferecem `beforeinstallprompt`, o botão abre o diálogo nativo; em iPhone/iPad, exibe as instruções para usar Compartilhar > Adicionar à Tela de Início. O prompt respeita o modo standalone, o evento `appinstalled` e o fechamento pelo usuário. O manifest, o service worker e o `apple-touch-icon` permanecem configurados para `/PROJETO_ONLINE_CRESCER/`.
+
 ## Convites administrativos
 
-A tela `/admin/convites` é exclusiva de `super_admin`. A criação calcula `expires_at` a partir de `app_settings.invites.expiration_days`, gera um link compatível com o subdiretório público e informa que a entrega do MVP é manual. O prazo inicial é de **7 dias** e pode ser alterado em `/admin/configuracoes` entre 1 e 30 dias.
+A tela `/admin/convites` é exclusiva de `super_admin`. A criação calcula `expires_at` a partir de `app_settings.invites.expiration_days`, gera um link compatível com o subdiretório público e tenta enviar automaticamente pelo provedor padrão; se o provedor nativo estiver selecionado ou houver falha, o link permanece disponível para compartilhamento manual. O prazo inicial é de **7 dias** e pode ser alterado em `/admin/configuracoes` entre 1 e 30 dias.
 
 O convidado pode criar uma conta diretamente pelo link ou entrar com uma conta existente. Em ambos os casos, o Supabase chama a RPC `public.accept_invite(text)`, que valida o token, confere o e-mail autenticado, promove o perfil ao papel convidado e marca o convite como usado em uma transação. Tokens inválidos, expirados ou já utilizados não são expostos pela leitura pública.
 

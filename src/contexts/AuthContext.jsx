@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import api, { formatApiError } from '../lib/api';
+import api, { formatApiError, recordAuditEvent } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
@@ -72,6 +72,7 @@ export function AuthProvider({ children: kids }) {
             const { data } = await api.post('/auth/login', { email, password });
             setUser(data);
             await refreshChildren();
+            void recordAuditEvent('LOGIN', 'auth', data?.id || null, { method: 'password' });
             return { ok: true, user: data };
         } catch (e) {
             return { ok: false, error: formatApiError(e.response?.data?.detail) };
@@ -101,6 +102,7 @@ export function AuthProvider({ children: kids }) {
     };
 
     const logout = async () => {
+        void recordAuditEvent('LOGOUT', 'auth', user?.id || null, { method: 'password' });
         try { await api.post('/auth/logout'); } catch {}
         setUser(false);
         setChildren([]);

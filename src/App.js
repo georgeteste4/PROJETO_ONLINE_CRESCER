@@ -24,8 +24,10 @@ import AdminInvites from './pages/admin/AdminInvites';
 import AdminImport from './pages/admin/AdminImport';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminAIGeneration from './pages/admin/AdminAIGeneration';
+import AdminAudit from './pages/admin/AdminAudit';
 import Legal from './pages/Legal';
 import AcceptInvite from './pages/AcceptInvite';
+import PwaInstallPrompt from './components/PwaInstallPrompt';
 
 const ADMIN_ROLES = ['super_admin', 'editor', 'moderador'];
 const CONTENT_ROLES = ['super_admin', 'editor'];
@@ -85,11 +87,13 @@ export default function App() {
                         <Route path="categorias" element={<ProtectedRoute requireRole={CONTENT_ROLES}><AdminCategories /></ProtectedRoute>} />
                         <Route path="sugestoes" element={<ProtectedRoute requireRole={CONTENT_ROLES}><AdminPinned /></ProtectedRoute>} />
                         <Route path="configuracoes" element={<ProtectedRoute requireRole={['super_admin']}><AdminSettings /></ProtectedRoute>} />
+                        <Route path="auditoria" element={<ProtectedRoute requireRole={['super_admin']}><AdminAudit /></ProtectedRoute>} />
                         <Route path="gerar-ia" element={<ProtectedRoute requireRole={CONTENT_ROLES}><AdminAIGeneration /></ProtectedRoute>} />
                     </Route>
 
                     <Route path="*" element={<Navigate to="/boas-vindas" replace />} />
                 </Routes>
+                <PwaInstallPrompt />
                 <Toaster position="top-center" richColors />
             </BrowserRouter>
         </AuthProvider>

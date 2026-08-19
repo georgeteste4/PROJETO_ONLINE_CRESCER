@@ -1,4 +1,5 @@
 {
+    "id": "/PROJETO_ONLINE_CRESCER/",
     "short_name": "Crescer+",
     "name": "Crescer+ — Desenvolvimento Infantil",
     "description": "Companheiro digital do desenvolvimento do seu bebê.",
@@ -9,7 +10,10 @@
     "start_url": "/PROJETO_ONLINE_CRESCER/",
     "scope": "/PROJETO_ONLINE_CRESCER/",
     "display": "standalone",
+    "display_override": ["window-controls-overlay", "standalone"],
     "orientation": "portrait",
+    "categories": ["lifestyle", "education", "health"],
+    "prefer_related_applications": false,
     "theme_color": "#E87A5D",
     "background_color": "#FCFAF8",
     "lang": "pt-BR"
