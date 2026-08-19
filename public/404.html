@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Crescer+</title>
+    <script>
+      // Preserva a rota SPA ao usar GitHub Pages em um repositório de projeto.
+      const redirect = sessionStorage.redirect;
+      delete sessionStorage.redirect;
+      if (redirect && redirect !== location.href) history.replaceState(null, null, redirect);
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      sessionStorage.redirect = location.href;
+      const path = location.pathname.split('/').filter(Boolean);
+      const repo = path.length ? `/${path[0]}` : '';
+      location.replace(`${location.origin}${repo}/`);
+    </script>
+  </body>
+</html>

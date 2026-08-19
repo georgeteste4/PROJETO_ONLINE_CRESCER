@@ -5,6 +5,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Onboarding from './pages/Onboarding';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import ChildRegistration from './pages/ChildRegistration';
 import Dashboard from './pages/Dashboard';
 import Library from './pages/Library';
@@ -49,11 +51,13 @@ function OnboardingGate() {
 export default function App() {
     return (
         <AuthProvider>
-            <BrowserRouter>
+            <BrowserRouter basename={process.env.PUBLIC_URL || undefined}>
                 <Routes>
                     <Route path="/boas-vindas" element={<OnboardingGate />} />
                     <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
                     <Route path="/cadastro" element={<PublicOnly><Register /></PublicOnly>} />
+                    <Route path="/recuperar-senha" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
+                    <Route path="/redefinir-senha" element={<ResetPassword />} />
                     <Route path="/convite/:token" element={<AcceptInvite />} />
                     <Route path="/cadastro-crianca" element={<ProtectedRoute><ChildRegistration /></ProtectedRoute>} />
                     <Route path="/" element={<ProtectedRoute requireChild><Dashboard /></ProtectedRoute>} />
