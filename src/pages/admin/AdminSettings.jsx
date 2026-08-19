@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Save, Settings, RefreshCw, CheckCircle2, AlertCircle, Clock3, FileText } from 'lucide-react';
+import { Save, Settings, RefreshCw, CheckCircle2, AlertCircle, Clock3, FileText, Mail as MailIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import api, { formatApiError } from '../../lib/api';
 import { Button } from '../../components/ui/button';
@@ -16,6 +16,10 @@ const SETTING_FIELDS = [
 ];
 
 const KIND_LABELS = { categories: 'Categorias', age_stages: 'Fases', activities: 'Atividades', pinned_suggestions: 'Sugestões fixas' };
+const INVITE_SETTING_FIELDS = [
+    { key: 'invites.expiration_days', label: 'Validade do convite', description: 'Número de dias até um link deixar de funcionar. O limite é de 1 a 30 dias.', type: 'number', min: 1, max: 30 },
+    { key: 'invites.delivery_mode', label: 'Entrega do convite', description: 'O MVP gera um link para compartilhamento manual; envio automático por e-mail fica para uma integração futura.', type: 'select', options: [{ value: 'manual', label: 'Manual — copiar link' }] },
+];
 
 function toValue(row) {
     if (row?.value_json === null || row?.value_json === undefined) return '';
@@ -73,7 +77,7 @@ export default function AdminSettings() {
     const updateSetting = async (field, value) => {
         setSavingKey(field.key);
         try {
-            const normalized = field.type === 'number' ? Math.min(20, Math.max(1, Number(value) || 1)) : value;
+            const normalized = field.type === 'number' ? Math.min(field.max || 20, Math.max(field.min || 1, Number(value) || field.min || 1)) : value;
             await api.put(`/admin/settings/${encodeURIComponent(field.key)}`, { value_json: normalized });
             setSettings((current) => ({ ...current, [field.key]: normalized }));
             toast.success('Configuração salva');
@@ -135,10 +139,13 @@ export default function AdminSettings() {
                         <button id="ai.require_review" type="button" role="switch" aria-checked={Boolean(settings['ai.require_review'])} onClick={() => updateSetting({ key: 'ai.require_review', type: 'boolean' }, !settings['ai.require_review'])} className={`relative w-14 h-8 rounded-full transition-colors ${settings['ai.require_review'] ? 'bg-coral' : 'bg-[#D9CEC6]'}`}><span className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${settings['ai.require_review'] ? 'translate-x-7' : 'translate-x-1'}`} /></button>
                     </div>
                 </div>
-            </section>
+                        </section>
+
+            <section className="rounded-3xl bg-white border border-[#EADFD8] shadow-warm p-5 sm:p-6"><div className="flex items-start gap-3 mb-5"><div className="w-11 h-11 rounded-2xl bg-[#FFF5D9] text-[#8B6A18] flex items-center justify-center"><MailIcon size={20} /></div><div><h2 className="font-display text-xl font-bold text-ink">Configurações de convites</h2><p className="text-sm text-ink-2 mt-1">Defina por quanto tempo os links permanecem válidos e como serão compartilhados.</p></div></div><div className="grid sm:grid-cols-2 gap-4">{INVITE_SETTING_FIELDS.map((field) => <div key={field.key} className="rounded-2xl bg-[#FCFAF8] border border-[#F0E7E1] p-4"><Label htmlFor={field.key} className="text-ink">{field.label}</Label><p className="text-xs leading-relaxed text-ink-2 mt-1 mb-3">{field.description}</p>{field.type === 'select' ? <div className="flex gap-2"><Select value={String(settings[field.key] || field.options[0].value)} onValueChange={(value) => setSettings((current) => ({ ...current, [field.key]: value }))}><SelectTrigger id={field.key} className="h-11 rounded-xl bg-white border-[#EADFD8]"><SelectValue /></SelectTrigger><SelectContent className="rounded-2xl">{field.options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select><Button aria-label={`Salvar ${field.label}`} onClick={() => updateSetting(field, settings[field.key])} disabled={savingKey === field.key} className="h-11 rounded-xl bg-ink hover:bg-ink/90 px-3"><Save size={16} /></Button></div> : <div className="flex gap-2"><Input id={field.key} type="number" min={field.min} max={field.max} value={settings[field.key] ?? ''} onChange={(e) => setSettings((current) => ({ ...current, [field.key]: e.target.value }))} className="h-11 rounded-xl bg-white border-[#EADFD8]" /><Button aria-label={`Salvar ${field.label}`} onClick={() => updateSetting(field, settings[field.key])} disabled={savingKey === field.key} className="h-11 rounded-xl bg-ink hover:bg-ink/90 px-3"><Save size={16} /></Button></div>}</div>)}</div></section>
 
             <section className="rounded-3xl bg-white border border-[#EADFD8] shadow-warm p-5 sm:p-6">
-                <div className="flex items-start gap-3 mb-5"><div className="w-11 h-11 rounded-2xl bg-[#EEEAFE] text-[#7354A8] flex items-center justify-center"><FileText size={20} /></div><div><h2 className="font-display text-xl font-bold text-ink">Gerenciar prompts</h2><p className="text-sm text-ink-2 mt-1">Ajuste o tom editorial sem alterar o contrato estruturado de saída.</p></div></div>
+                <div className="flex items-start gap-3 mb-5"><div className="w-11 h-11 rounded-2xl bg-[#EEEAFE] text-[#7354A8] flex items-center justify-center"><FileText size={20} /></div><div><h2 className="font-display text-xl font-bold text-ink">Gerenciar prompts</h2>
+<p className="text-sm text-ink-2 mt-1">Ajuste o tom editorial sem alterar o contrato estruturado de saída.</p></div></div>
                 {prompts.length === 0 ? <p className="text-sm text-ink-2">Nenhum prompt cadastrado.</p> : <div className="grid lg:grid-cols-[220px_1fr] gap-5"><div className="space-y-2">{prompts.map((prompt) => <button key={prompt.prompt_key} type="button" onClick={() => setSelectedPromptKey(prompt.prompt_key)} className={`w-full text-left rounded-2xl px-4 py-3 transition ${prompt.prompt_key === selectedPromptKey ? 'bg-ink text-white' : 'bg-[#FCFAF8] text-ink hover:bg-[#F6EEE8]'}`}><span className="text-xs uppercase tracking-wide opacity-70">{KIND_LABELS[prompt.kind]}</span><span className="block font-semibold mt-1">{prompt.name}</span></button>)}</div><div className="space-y-4">{promptDraft && <><div className="grid sm:grid-cols-2 gap-3"><div><Label>Nome interno</Label><Input value={promptDraft.name} onChange={(e) => setPromptDraft({ ...promptDraft, name: e.target.value })} className="mt-1 h-11 rounded-xl bg-white border-[#EADFD8]" /></div><div><Label>Tipo</Label><Input value={KIND_LABELS[promptDraft.kind] || promptDraft.kind} readOnly className="mt-1 h-11 rounded-xl bg-[#FCFAF8] border-[#EADFD8]" /></div></div><div><Label>Instruções do sistema</Label><Textarea value={promptDraft.system_prompt} onChange={(e) => setPromptDraft({ ...promptDraft, system_prompt: e.target.value })} rows={5} className="mt-1 rounded-2xl bg-white border-[#EADFD8]" /></div><div><Label>Prompt do usuário</Label><Textarea value={promptDraft.user_prompt} onChange={(e) => setPromptDraft({ ...promptDraft, user_prompt: e.target.value })} rows={7} className="mt-1 rounded-2xl bg-white border-[#EADFD8]" /><p className="text-xs text-ink-2 mt-2">Variáveis disponíveis dependem do tipo: <code className="font-mono">{'{{count}}'}</code>, <code className="font-mono">{'{{age_stage_id}}'}</code>, <code className="font-mono">{'{{category_id}}'}</code>.</p></div><div className="flex justify-end"><Button onClick={savePrompt} disabled={savingPrompt} className="rounded-full bg-coral hover:bg-[#D9684C]"><Save size={16} className="mr-2" />{savingPrompt ? 'Salvando…' : 'Salvar prompt'}</Button></div></>}</div></div>}
             </section>
 

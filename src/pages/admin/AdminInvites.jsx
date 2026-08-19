@@ -26,16 +26,20 @@ export default function AdminInvites() {
     const [email, setEmail] = useState('');
     const [role, setRole] = useState('editor');
     const [error, setError] = useState('');
+    const [loadError, setLoadError] = useState('');
     const [saving, setSaving] = useState(false);
     const [lastLink, setLastLink] = useState(null);
 
     const load = async () => {
         setLoading(true);
+        setLoadError('');
         try {
             const { data } = await api.get('/admin/invites');
-            setItems(data);
+            setItems(data || []);
         } catch (e) {
-            toast.error(formatApiError(e.response?.data?.detail));
+            const detail = formatApiError(e.response?.data?.detail);
+            setLoadError(detail);
+            toast.error(detail);
         } finally {
             setLoading(false);
         }
@@ -46,11 +50,7 @@ export default function AdminInvites() {
         setSaving(true);
         setError('');
         try {
-            const { data } = await api.post('/admin/invites', {
-                email,
-                role,
-                base_url: window.location.origin,
-            });
+            const { data } = await api.post('/admin/invites', { email, role });
             setLastLink({ link: data.link, email: data.email, email_result: data.email_result });
             setCreating(false);
             setEmail('');
@@ -78,10 +78,15 @@ export default function AdminInvites() {
         }
     };
 
-    const copyLink = (token) => {
-        const link = `${window.location.origin}/convite/${token}`;
-        navigator.clipboard.writeText(link);
-        toast.success('Link copiado!');
+    const copyLink = async (linkOrToken) => {
+        const base = `${window.location.origin}${String(process.env.PUBLIC_URL || '').replace(/\/$/, '')}`;
+        const link = String(linkOrToken).startsWith('http') ? linkOrToken : `${base}/convite/${encodeURIComponent(linkOrToken)}`;
+        try {
+            await navigator.clipboard.writeText(link);
+            toast.success('Link copiado!');
+        } catch {
+            setLastLink({ link, email: 'Convite', email_result: { sent: false, reason: 'Copie o link manualmente.' } });
+        }
     };
 
     return (
@@ -99,6 +104,8 @@ export default function AdminInvites() {
             <div className="rounded-3xl bg-white shadow-warm border border-[#EADFD8] overflow-hidden">
                 {loading ? (
                     <div className="p-8 text-center text-ink-2">Carregando…</div>
+                ) : loadError ? (
+                    <div className="p-10 text-center"><X size={32} className="mx-auto text-destructive" /><p className="mt-3 font-display font-bold text-ink">Não foi possível carregar os convites</p><p className="text-sm text-ink-2 mt-1">{loadError}</p><Button onClick={load} className="mt-4 rounded-full bg-ink"><Clock size={16} className="mr-2" /> Tentar novamente</Button></div>
                 ) : items.length === 0 ? (
                     <div data-testid="invites-empty" className="p-10 text-center">
                         <Mail size={32} className="mx-auto text-ink-2" />
@@ -217,7 +224,7 @@ export default function AdminInvites() {
                         </div>
                         {error && <p className="text-sm text-destructive">{error}</p>}
                         <p className="text-xs text-ink-2">
-                            Se o Resend estiver configurado, enviaremos o e-mail. Caso contrário, você recebe o link para compartilhar manualmente.
+                            O MVP usa entrega manual: o link será gerado aqui para você copiar e compartilhar com segurança. A validade padrão pode ser ajustada em Configurações.
                         </p>
                     </div>
                     <DialogFooter className="mt-4 gap-2">
@@ -243,9 +250,10 @@ export default function AdminInvites() {
                     {lastLink && (
                         <div className="space-y-3">
                             <p className="text-sm text-ink-2">
-                                {lastLink.email_result?.sent
-                                    ? `E-mail enviado para ${lastLink.email}.`
-                                    : `O e-mail automático não foi enviado (${lastLink.email_result?.reason || 'motivo desconhecido'}). Compartilhe o link abaixo.`}
+                                                                    {lastLink.email_result?.sent
+                                        ? `E-mail enviado para ${lastLink.email}.`
+                                        : `Compartilhe manualmente o link abaixo. ${lastLink.email_result?.reason || ''}`}
+
                             </p>
                             <div className="p-4 rounded-2xl bg-[#FDF6F0] flex items-center gap-3">
                                 <code data-testid="last-invite-link" className="font-mono text-xs sm:text-sm text-ink flex-1 break-all">
@@ -253,7 +261,7 @@ export default function AdminInvites() {
                                 </code>
                                 <Button
                                     variant="ghost"
-                                    onClick={() => { navigator.clipboard.writeText(lastLink.link); toast.success('Copiado!'); }}
+                                    onClick={() => copyLink(lastLink.link)}
                                     className="rounded-full"
                                 >
                                     <Copy size={16} />

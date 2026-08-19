@@ -32,8 +32,10 @@ A pasta `database` contém as migrações na ordem abaixo:
 | `005_grant_private_is_staff.sql` | Concede somente aos usuários autenticados a execução interna necessária para as políticas RLS administrativas. |
 | `006_admin_stats_rls.sql` | Permite que staff leia conclusões e favoritos para as métricas do painel administrativo. |
 | `007_admin_settings_ai_generation.sql` | Configurações editoriais, prompts versionáveis e histórico de jobs de geração em lote, todos protegidos por RLS de staff. |
+| `008_invites_configuration_and_acceptance.sql` | Validade configurável, modo de entrega manual, gestão de convites restrita a super_admin e RPC transacional de aceite/promoção. |
+| `009_grant_invite_policy_helper.sql` | Permissão mínima para a função auxiliar usada pela policy RLS de convites. |
 
-As sete migrações já foram aplicadas ao projeto Supabase configurado para este frontend. O seed validado contém **5 categorias, 4 fases e 20 atividades**. Os SQLs anexados foram mantidos como referência, mas não foram executados diretamente porque usavam `password_hash`, IDs `text` e contas de teste que não são compatíveis com o Auth nativo do Supabase.
+As nove migrações já foram aplicadas ao projeto Supabase configurado para este frontend. O seed validado contém **5 categorias, 4 fases e 20 atividades**. Os SQLs anexados foram mantidos como referência, mas não foram executados diretamente porque usavam `password_hash`, IDs `text` e contas de teste que não são compatíveis com o Auth nativo do Supabase.
 
 ## Arquitetura de integração
 
@@ -63,5 +65,13 @@ O painel administrativo agora possui as rotas `/admin/configuracoes` e `/admin/g
 A Edge Function `admin-ai` foi publicada no projeto Supabase com JWT obrigatório. Ela valida o papel `super_admin` ou `editor`, consulta os prompts e configurações via RLS, chama `https://openrouter.ai/api/v1/chat/completions` com `response_format.type = json_schema` e grava o resultado em `ai_generation_jobs`. A chave nunca deve ser colocada no frontend ou nas tabelas públicas. Configure-a como secret da Edge Function com o nome `OPENROUTER_API_KEY` no painel/CLI do Supabase antes de usar a geração real. Sem esse secret, a interface permanece disponível, mas exibirá uma mensagem explicando que a geração ainda não foi habilitada.
 
 Os modelos compatíveis são filtrados pelo catálogo do OpenRouter usando `supported_parameters` com `structured_outputs` ou `response_format`. O resultado deve ser revisado pelo time editorial e, para conteúdo infantil, passar por curadoria profissional antes de uma escala maior.
+
+## Convites administrativos
+
+A tela `/admin/convites` é exclusiva de `super_admin`. A criação calcula `expires_at` a partir de `app_settings.invites.expiration_days`, gera um link compatível com o subdiretório público e informa que a entrega do MVP é manual. O prazo inicial é de **7 dias** e pode ser alterado em `/admin/configuracoes` entre 1 e 30 dias.
+
+O convidado pode criar uma conta diretamente pelo link ou entrar com uma conta existente. Em ambos os casos, o Supabase chama a RPC `public.accept_invite(text)`, que valida o token, confere o e-mail autenticado, promove o perfil ao papel convidado e marca o convite como usado em uma transação. Tokens inválidos, expirados ou já utilizados não são expostos pela leitura pública.
+
+A validação automatizada temporária confirmou criação, leitura pública pendente, aceite, promoção para editor e limpeza dos dados de teste. O teste foi executado com as contas de demonstração e não deixou convite ou alteração de papel persistente.
 
 O conteúdo do app é educativo e não substitui avaliação profissional.

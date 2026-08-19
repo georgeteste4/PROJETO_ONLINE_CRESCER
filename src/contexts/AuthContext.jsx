@@ -28,6 +28,12 @@ export function AuthProvider({ children: kids }) {
         }
     }, []);
 
+    const refreshUser = useCallback(async () => {
+        const { data } = await api.get('/auth/me');
+        setUser(data);
+        return data;
+    }, []);
+
     const checkSession = useCallback(async () => {
         try {
             const { data: sessionData } = await supabase.auth.getSession();
@@ -37,15 +43,14 @@ export function AuthProvider({ children: kids }) {
                 setActiveChild(null);
                 return;
             }
-            const { data } = await api.get('/auth/me');
-            setUser(data);
+            await refreshUser();
             await refreshChildren();
         } catch {
             setUser(false);
             setChildren([]);
             setActiveChild(null);
         }
-    }, [refreshChildren]);
+    }, [refreshChildren, refreshUser]);
 
     useEffect(() => {
         checkSession();
@@ -121,7 +126,7 @@ export function AuthProvider({ children: kids }) {
             user, children, activeChild, isAdmin,
             child: activeChild,
             setChild: setActiveChild,
-            refreshChild: refreshChildren,
+            refreshUser, refreshChild: refreshChildren,
             refreshChildren, switchChild,
             login, register, logout, deleteAccount,
         }}>

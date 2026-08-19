@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Eye, EyeOff, Heart, LockKeyhole, Mail, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
+import api, { formatApiError } from '../lib/api';
 import AppShell from '../components/AppShell';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -10,7 +11,9 @@ import { Label } from '../components/ui/label';
 
 export default function Login() {
     const nav = useNavigate();
-    const { login } = useAuth();
+    const [searchParams] = useSearchParams();
+    const inviteToken = searchParams.get('invite');
+    const { login, refreshUser } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -24,6 +27,18 @@ export default function Login() {
         const res = await login(email.trim(), password);
         setLoading(false);
         if (res.ok) {
+            if (inviteToken) {
+                try {
+                    const { data } = await api.post(`/invites/${inviteToken}/claim`);
+                    await refreshUser();
+                    toast.success(`Convite aceito como ${data.role === 'super_admin' ? 'Super Admin' : data.role === 'editor' ? 'Editor' : 'Moderador'}!`);
+                    nav('/admin', { replace: true });
+                    return;
+                } catch (claimError) {
+                    setError(formatApiError(claimError.response?.data?.detail || claimError.message));
+                    return;
+                }
+            }
             toast.success('Bem-vindo de volta!');
             const isAdmin = res.user && ['super_admin', 'editor', 'moderador'].includes(res.user.role);
             nav(isAdmin ? '/admin' : '/');

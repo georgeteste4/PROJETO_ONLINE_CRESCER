@@ -51,6 +51,21 @@ function decorateChild(child, stages = []) {
     };
 }
 
+function appBaseUrl() {
+    const publicUrl = String(process.env.PUBLIC_URL || '').replace(/\/$/, '');
+    return `${window.location.origin}${publicUrl}`;
+}
+
+function decorateInvite(invite) {
+    if (!invite) return invite;
+    const expiresAt = new Date(invite.expires_at).getTime();
+    return {
+        ...invite,
+        expired: !invite.used && Number.isFinite(expiresAt) && expiresAt <= Date.now(),
+        link: invite.token ? `${appBaseUrl()}/convite/${encodeURIComponent(invite.token)}` : null,
+    };
+}
+
 async function currentAuthUser() {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data?.user) throw httpError('Sua sessão expirou. Entre novamente.', 401);
@@ -190,6 +205,12 @@ async function assertContentStaff() {
     return profile;
 }
 
+async function assertSuperAdmin() {
+    const profile = await currentProfile();
+    if (profile.role !== 'super_admin') throw httpError('Apenas super administradores podem gerenciar convites.', 403);
+    return profile;
+}
+
 async function invokeAdminAI(payload) {
     const { data, error } = await supabase.functions.invoke('admin-ai', { body: payload });
     if (error) throw httpError(error.message || 'Não foi possível comunicar com o serviço de IA.');
@@ -256,8 +277,10 @@ const api = {
         }
         if (path.startsWith('/invites/')) {
             const token = path.split('/')[2];
-            const { data, error } = await supabase.from('invites').select('id, email, role, token, expires_at, invited_by_name, used').eq('token', token).eq('used', false).gt('expires_at', new Date().toISOString()).single();
-            return ensureData(data, error);
+            const { data, error } = await supabase.from('invites').select('id, email, role, token, expires_at, invited_by_name, used').eq('token', token).eq('used', false).gt('expires_at', new Date().toISOString()).maybeSingle();
+            if (error) throw httpError(error.message);
+            if (!data) throw httpError('Convite inválido, expirado ou já utilizado.', 404);
+            return { data: decorateInvite(data) };
         }
         if (path === '/admin/stats') {
             await assertStaff();
@@ -339,9 +362,9 @@ const api = {
         }
         if (path === '/admin/activities') return { data: await activities(config.params || {}) };
         if (path === '/admin/invites') {
-            await assertStaff();
+            await assertSuperAdmin();
             const { data, error } = await supabase.from('invites').select('id, email, role, token, expires_at, invited_by_name, used, created_at').order('created_at', { ascending: false });
-            return ensureData(data || [], error);
+            return ensureData((data || []).map(decorateInvite), error);
         }
         if (path === '/admin/settings') {
             await assertContentStaff();
@@ -431,8 +454,16 @@ const api = {
             const invite = await api.get(`/invites/${token}`);
             const { data, error } = await supabase.auth.signUp({ email: invite.data.email, password: payload.password, options: { data: { name: payload.name, accept_terms: true } } });
             if (error) throw httpError(error.message);
-            if (!data.session) return { data: { pending_confirmation: true, email: invite.data.email } };
-            return { data: { ...(await currentProfile()), token: data.session.access_token } };
+            if (!data.session) return { data: { pending_confirmation: true, email: invite.data.email, invite_token: token } };
+            const claimed = await api.post(`/invites/${token}/claim`);
+            return { data: { ...claimed.data, token: data.session.access_token } };
+        }
+        if (path.startsWith('/invites/') && path.endsWith('/claim')) {
+            const token = path.split('/')[2];
+            const { data, error } = await supabase.rpc('accept_invite', { p_token: token });
+            if (error) throw httpError(error.message);
+            const profile = await currentProfile();
+            return { data: { ...profile, invite: Array.isArray(data) ? data[0] : data } };
         }
         if (path === '/admin/activities/import/preview') {
             await assertStaff();
@@ -486,10 +517,19 @@ const api = {
             return { data: await invokeAdminAI({ action: 'apply', job_id: path.split('/')[3] }) };
         }
         if (path === '/admin/invites') {
-            const profile = await assertStaff();
+            const profile = await assertSuperAdmin();
             const token = crypto.randomUUID();
-            const { data, error } = await supabase.from('invites').insert({ ...payload, token, invited_by: profile.id, invited_by_name: profile.name || 'Admin' }).select('*').single();
-            return ensureData(data, error);
+            const { data: settingRows, error: settingError } = await supabase.from('app_settings').select('key, value_json').in('key', ['invites.expiration_days', 'invites.delivery_mode']);
+            if (settingError) throw httpError(settingError.message);
+            const settings = Object.fromEntries((settingRows || []).map((row) => [row.key, row.value_json]));
+            const expirationDays = Math.min(30, Math.max(1, Number(settings['invites.expiration_days']) || 7));
+            const expires_at = new Date(Date.now() + expirationDays * DAY_MS).toISOString();
+            const email = String(payload.email || '').trim().toLowerCase();
+            if (!email) throw httpError('Informe o e-mail do convidado.');
+            if (!['moderador', 'editor', 'super_admin'].includes(payload.role)) throw httpError('Selecione um papel válido.');
+            const { data, error } = await supabase.from('invites').insert({ email, role: payload.role, token, expires_at, invited_by: profile.id, invited_by_name: profile.name || 'Admin' }).select('id, email, role, token, expires_at, invited_by_name, used, created_at').single();
+            if (error) throw httpError(error.message);
+            return { data: { ...decorateInvite(data), email_result: { sent: false, mode: settings['invites.delivery_mode'] || 'manual', reason: 'O MVP usa compartilhamento manual do link.' } } };
         }
         if (path.startsWith('/admin/users/') && path.endsWith('/reset-password')) {
             await assertStaff();
@@ -506,8 +546,8 @@ const api = {
 
     async put(path, payload) {
         if (path.startsWith('/admin/settings/')) {
-            const profile = await assertContentStaff();
             const key = decodeURIComponent(path.split('/')[3]);
+            const profile = key.startsWith('invites.') ? await assertSuperAdmin() : await assertContentStaff();
             const value_json = Object.prototype.hasOwnProperty.call(payload || {}, 'value_json') ? payload.value_json : payload?.value;
             const { data, error } = await supabase.from('app_settings').upsert({ key, value_json: value_json ?? null, updated_by: profile.id, updated_at: new Date().toISOString() }, { onConflict: 'key' }).select('key, value_json, updated_by, updated_at').single();
             return ensureData(data, error);
@@ -605,7 +645,7 @@ const api = {
             return { data: null };
         }
         if (path.startsWith('/admin/invites/')) {
-            await assertStaff();
+            await assertSuperAdmin();
             const id = path.split('/')[3];
             const { error } = await supabase.from('invites').delete().eq('id', id);
             if (error) throw httpError(error.message);
