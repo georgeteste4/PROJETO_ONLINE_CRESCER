@@ -30,8 +30,9 @@ A pasta `database` contém as migrações na ordem abaixo:
 | `003_supabase_auth_admin.sql` | Exclusão da própria conta, regras administrativas e prevenção de autoalteração de papel ou banimento. |
 | `004_harden_security_definer.sql` | Move funções internas para o schema privado e deixa somente a exclusão autenticada como RPC pública intencional. |
 | `005_grant_private_is_staff.sql` | Concede somente aos usuários autenticados a execução interna necessária para as políticas RLS administrativas. |
+| `006_admin_stats_rls.sql` | Permite que staff leia conclusões e favoritos para as métricas do painel administrativo. |
 
-As cinco migrações já foram aplicadas ao projeto Supabase configurado para este frontend. O seed validado contém **5 categorias, 4 fases e 20 atividades**. Os SQLs anexados foram mantidos como referência, mas não foram executados diretamente porque usavam `password_hash`, IDs `text` e contas de teste que não são compatíveis com o Auth nativo do Supabase.
+As seis migrações já foram aplicadas ao projeto Supabase configurado para este frontend. O seed validado contém **5 categorias, 4 fases e 20 atividades**. Os SQLs anexados foram mantidos como referência, mas não foram executados diretamente porque usavam `password_hash`, IDs `text` e contas de teste que não são compatíveis com o Auth nativo do Supabase.
 
 ## Arquitetura de integração
 

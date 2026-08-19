@@ -246,7 +246,61 @@ const api = {
         }
         if (path === '/admin/stats') {
             await assertStaff();
-            return { data: { users: await countRows('users'), children: await countRows('children'), activities: await countRows('activities'), completions: await countRows('completions') } };
+            const [users, children, activities, favorites, banned] = await Promise.all([
+                countRows('users'),
+                countRows('children'),
+                countRows('activities'),
+                countRows('favorites'),
+                supabase.from('users').select('id', { count: 'exact', head: true }).eq('banned', true),
+            ]);
+            if (banned.error) throw httpError(banned.error.message);
+
+            const today = new Date();
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - 6);
+            const monthStart = new Date(today);
+            monthStart.setDate(today.getDate() - 29);
+            const weekStartIso = weekStart.toISOString();
+            const monthStartIso = monthStart.toISOString();
+
+            const [{ count: weekSignups, error: signupsError }, { data: completionRows, error: completionsError }] = await Promise.all([
+                supabase.from('users').select('id', { count: 'exact', head: true }).gte('created_at', weekStartIso),
+                supabase.from('completions').select('id, activity_id, data, activities(category_id, titulo)').gte('data', monthStartIso).order('data', { ascending: false }),
+            ]);
+            if (signupsError) throw httpError(signupsError.message);
+            if (completionsError) throw httpError(completionsError.message);
+
+            const categoryList = await categories();
+            const byCategory = categoryList.map((category) => ({ category_id: category.id, nome: category.nome, cor: category.cor, count: 0 }));
+            const topMap = new Map();
+            (completionRows || []).forEach((row) => {
+                const category = byCategory.find((item) => item.category_id === row.activities?.category_id);
+                if (category) category.count += 1;
+                const activityId = row.activity_id;
+                const current = topMap.get(activityId) || { activity_id: activityId, titulo: row.activities?.titulo || 'Atividade', count: 0 };
+                current.count += 1;
+                topMap.set(activityId, current);
+            });
+
+            return {
+                data: {
+                    totals: {
+                        users,
+                        children,
+                        activities,
+                        completions: completionRows?.length || 0,
+                        favorites,
+                        banned: banned.count || 0,
+                    },
+                    activity: {
+                        week_signups: weekSignups || 0,
+                        week_completions: (completionRows || []).filter((row) => new Date(row.data) >= weekStart).length,
+                        month_completions: completionRows?.length || 0,
+                    },
+                    by_category: byCategory,
+                    top_activities: Array.from(topMap.values()).sort((a, b) => b.count - a.count).slice(0, 5),
+                },
+            };
         }
         if (path === '/admin/users') {
             await assertStaff();
