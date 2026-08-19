@@ -1,0 +1,16 @@
+{
+    "short_name": "Crescer+",
+    "name": "Crescer+ — Desenvolvimento Infantil",
+    "description": "Companheiro digital do desenvolvimento do seu bebê.",
+    "icons": [
+        { "src": "icon-192.png", "type": "image/png", "sizes": "192x192" },
+        { "src": "icon-512.png", "type": "image/png", "sizes": "512x512" }
+    ],
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "theme_color": "#E87A5D",
+    "background_color": "#FCFAF8",
+    "lang": "pt-BR"
+}
