@@ -17,7 +17,7 @@ A branch `main` é a fonte de publicação. Sempre que um commit chegar a essa b
 | Checkout | Baixar o commit recebido na branch `main`. |
 | Node.js | Preparar o runtime Node 22 usado pelo projeto. |
 | Instalação | Executar `npm ci --legacy-peer-deps` respeitando o lockfile e os conflitos de peer dependencies conhecidos do projeto. |
-| Build | Executar `npm run build` e gerar a pasta `build/`. |
+| Build | Injetar as variáveis públicas do Supabase e executar `npm run build`, gerando a pasta `build/`. |
 | Configuração | Preparar o site para o GitHub Pages e habilitar o recurso quando a conta permitir essa operação. |
 | Artifact | Empacotar a pasta `build/` como artefato oficial do Pages. |
 | Deploy | Publicar o artefato no ambiente `github-pages`. |
@@ -37,6 +37,8 @@ Como o repositório é publicado em um subdiretório, o projeto precisa usar o c
 O valor faz o Create React App gerar referências de JavaScript, CSS, ícones e manifest compatíveis com `/PROJETO_ONLINE_CRESCER/`. O `public/manifest.json`, o `public/service-worker.js`, o `public/404.html` e os ícones também devem manter referências relativas ou o prefixo correto do subdiretório.
 
 Não remova a cópia `public/404.html`. Ela permite que o GitHub Pages devolva o shell da aplicação para rotas internas do React Router, como `/atividades`, `/progresso`, `/perfil`, `/notificacoes` e `/suporte`, quando o usuário acessar diretamente uma URL profunda.
+
+O service worker usa o cache versionado `crescer-static-v3`. Sempre que houver mudança estrutural no shell ou necessidade de invalidar uma versão antiga, incremente `CACHE_NAME` em `public/service-worker.js`; o evento `activate` remove caches anteriores automaticamente.
 
 ## Atualização automática
 
@@ -95,7 +97,14 @@ REACT_APP_SUPABASE_URL=https://seu-projeto.supabase.co
 REACT_APP_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 ```
 
-As secrets privadas permanecem no Supabase e não devem ser adicionadas ao repositório:
+O workflow define no próprio passo de build as variáveis públicas do projeto atualmente conectado:
+
+```text
+REACT_APP_SUPABASE_URL=https://cskhqoyrqhwlwrrfaemw.supabase.co
+REACT_APP_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+```
+
+A chave `sb_publishable_...` é própria para uso no navegador e não concede privilégios administrativos por si só. O bundle publicado deve conter o domínio `cskhqoyrqhwlwrrfaemw.supabase.co` e nunca deve cair no `placeholder.supabase.co`. As secrets privadas permanecem no Supabase e não devem ser adicionadas ao repositório:
 
 | Secret | Uso |
 | --- | --- |
@@ -158,7 +167,7 @@ O workflow publicará automaticamente o estado revertido. Para uma correção ur
 
 ## Histórico desta configuração
 
-A configuração foi preparada para o repositório `georgeteste4/PROJETO_ONLINE_CRESCER`, branch `main`, com deploy por Actions, build CRA e URL de projeto. O commit que introduziu o workflow e esta documentação deve ser mantido no histórico para facilitar auditoria e manutenção.
+A configuração foi preparada para o repositório `georgeteste4/PROJETO_ONLINE_CRESCER`, branch `main`, com deploy por Actions, build CRA e URL de projeto. O domínio personalizado que estava associado ao Pages foi removido porque redirecionava a URL `github.io` para `crescebem.online`, que estava estacionado e não servia a aplicação. A URL oficial é o domínio padrão do projeto. O commit que introduziu o workflow e esta documentação deve ser mantido no histórico para facilitar auditoria e manutenção.
 
 ## Referências
 

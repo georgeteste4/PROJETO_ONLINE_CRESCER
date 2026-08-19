@@ -9,6 +9,12 @@ const corsHeaders = {
 
 const DEFAULT_DISCLAIMER = "Conteúdo educativo, não substitui avaliação profissional.";
 const ALLOWED_KINDS = new Set(["categories", "age_stages", "activities", "pinned_suggestions"]);
+
+function createTextId(prefix: string, value?: unknown) {
+  const candidate = String(value || "").trim();
+  if (candidate) return candidate;
+  return `${prefix}_${crypto.randomUUID().replace(/-/g, "")}`;
+}
 const CONTENT_ROLES = new Set(["super_admin", "editor"]);
 
 function jsonResponse(body: unknown, status = 200) {
@@ -268,19 +274,21 @@ function catalogRows(kind: string, output: unknown[], context: Record<string, un
   if (kind === "categories") {
     return output.map((item) => {
       const row = item as Record<string, unknown>;
-      return { id: String(row.id || row.slug), slug: String(row.slug || row.id), nome: String(row.nome || "Nova categoria"), cor: String(row.cor || "#E87A5D"), icone: String(row.icone || "Sparkles") };
+      const id = createTextId("category", row.id || row.slug);
+      return { id, slug: String(row.slug || id), nome: String(row.nome || "Nova categoria"), cor: String(row.cor || "#E87A5D"), icone: String(row.icone || "Sparkles") };
     });
   }
   if (kind === "age_stages") {
     return output.map((item) => {
       const row = item as Record<string, unknown>;
-      return { id: String(row.id || row.slug), slug: String(row.slug || row.id), titulo: String(row.titulo || "Nova fase"), descricao: String(row.descricao || ""), min_days: Number(row.min_days) || 0, max_days: Math.max(Number(row.max_days) || 0, Number(row.min_days) || 0), dados_gerais: String(row.dados_gerais || ""), desenvolvimento: String(row.desenvolvimento || ""), dicas: String(row.dicas || ""), cuidados: String(row.cuidados || "") };
+      const id = createTextId("stage", row.id || row.slug);
+      return { id, slug: String(row.slug || id), titulo: String(row.titulo || "Nova fase"), descricao: String(row.descricao || ""), min_days: Number(row.min_days) || 0, max_days: Math.max(Number(row.max_days) || 0, Number(row.min_days) || 0), dados_gerais: String(row.dados_gerais || ""), desenvolvimento: String(row.desenvolvimento || ""), dicas: String(row.dicas || ""), cuidados: String(row.cuidados || "") };
     });
   }
   if (kind === "activities") {
     return output.map((item) => {
       const row = item as Record<string, unknown>;
-      return { id: String(row.id), age_stage_id: String(row.age_stage_id || context.age_stage_id || ""), category_id: String(row.category_id || context.category_id || ""), titulo: String(row.titulo || "Nova atividade"), objetivo: String(row.objetivo || ""), materiais: Array.isArray(row.materiais) ? row.materiais : [], passos: Array.isArray(row.passos) ? row.passos : [], duracao_min: Math.max(1, Number(row.duracao_min) || 10), cuidados: String(row.cuidados || "Supervisione a criança durante toda a atividade."), imagem_url: row.imagem_url || null, disclaimer: DEFAULT_DISCLAIMER };
+      return { id: createTextId("activity", row.id), age_stage_id: String(row.age_stage_id || context.age_stage_id || ""), category_id: String(row.category_id || context.category_id || ""), titulo: String(row.titulo || "Nova atividade"), objetivo: String(row.objetivo || ""), materiais: Array.isArray(row.materiais) ? row.materiais : [], passos: Array.isArray(row.passos) ? row.passos : [], duracao_min: Math.max(1, Number(row.duracao_min) || 10), cuidados: String(row.cuidados || "Supervisione a criança durante toda a atividade."), imagem_url: row.imagem_url || null, disclaimer: DEFAULT_DISCLAIMER };
     });
   }
   return output.map((item) => {
@@ -304,6 +312,13 @@ async function applyJob(body: Record<string, unknown>, supabase: ReturnType<type
   const output = unwrapOutput(job.output_json);
   const rows = catalogRows(job.kind, output, context);
   if (!rows.length) throw new Error("O job não contém itens aplicáveis.");
+  const hasInvalidReferences = rows.some((row) => {
+    const item = row as Record<string, unknown>;
+    return !item.age_stage_id || (job.kind === "activities" && (!item.category_id || !item.titulo)) || (job.kind === "pinned_suggestions" && !item.activity_id);
+  });
+  if (hasInvalidReferences) {
+    throw new Error("O conteúdo gerado precisa informar as referências de fase, categoria e atividade.");
+  }
 
   let result: { data: unknown[] | null; error: { message: string } | null };
   if (job.kind === "pinned_suggestions") {

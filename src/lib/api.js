@@ -3,6 +3,32 @@ import { supabase } from './supabase';
 const DEFAULT_DISCLAIMER = 'Conteúdo educativo, não substitui avaliação profissional.';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+function createTextId(prefix) {
+    const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    return `${prefix}_${String(random).replace(/-/g, '')}`;
+}
+
+function catalogId(prefix, value) {
+    const candidate = String(value || '').trim();
+    return candidate || createTextId(prefix);
+}
+
+function normalizeCatalogActivity(item = {}) {
+    return {
+        id: catalogId('activity', item.id),
+        age_stage_id: String(item.age_stage_id || '').trim(),
+        category_id: String(item.category_id || '').trim(),
+        titulo: String(item.titulo || '').trim(),
+        objetivo: String(item.objetivo || ''),
+        materiais: Array.isArray(item.materiais) ? item.materiais : [],
+        passos: Array.isArray(item.passos) ? item.passos : [],
+        duracao_min: Math.max(1, Number(item.duracao_min) || 10),
+        cuidados: String(item.cuidados || ''),
+        imagem_url: item.imagem_url || null,
+        disclaimer: item.disclaimer || DEFAULT_DISCLAIMER,
+    };
+}
+
 function httpError(message, status = 400) {
     const error = new Error(message || 'Algo deu errado. Tente novamente.');
     error.response = { status, data: { detail: message } };
@@ -630,21 +656,25 @@ const api = {
             return { data: { ...profile, invite: Array.isArray(data) ? data[0] : data } };
         }
         if (path === '/admin/activities/import/preview') {
-            await assertStaff();
+            await assertContentStaff();
             try {
                 const items = await parseImport(payload, config);
                 const current = await activities();
                 const existing = new Set(current.map((item) => item.id));
-                const to_create = items.filter((item) => item.id && !existing.has(item.id));
+                const normalized = items.map((item) => normalizeCatalogActivity(item));
+                const to_create = normalized.filter((item) => !existing.has(item.id));
                 return { data: { total: items.length, created_count: to_create.length, skipped_count: items.length - to_create.length, error_count: 0, to_create, errors: [] } };
             } catch (error) {
                 throw httpError(`Não foi possível ler o arquivo: ${error.message}`);
             }
         }
         if (path === '/admin/activities/import/commit') {
-            await assertStaff();
+            await assertContentStaff();
             const items = payload.activities || [];
-            const { data, error } = await supabase.from('activities').upsert(items.map((item) => ({ ...item, disclaimer: item.disclaimer || DEFAULT_DISCLAIMER })), { onConflict: 'id' }).select('id');
+            const rows = items.map((item) => normalizeCatalogActivity(item));
+            const invalid = rows.find((item) => !item.age_stage_id || !item.category_id || !item.titulo);
+            if (invalid) throw httpError('Cada atividade precisa de fase, categoria e título.');
+            const { data, error } = await supabase.from('activities').upsert(rows, { onConflict: 'id' }).select('id');
             return ensureData({ created_count: data?.length || 0 }, error);
         }
         if (path === '/admin/notification-campaigns') {
@@ -653,18 +683,24 @@ const api = {
             return ensureData(data, error);
         }
         if (path === '/admin/activities') {
-            await assertStaff();
-            const { data, error } = await supabase.from('activities').insert({ ...payload, disclaimer: payload.disclaimer || DEFAULT_DISCLAIMER }).select('*').single();
+            await assertContentStaff();
+            const row = normalizeCatalogActivity(payload);
+            if (!row.age_stage_id || !row.category_id || !row.titulo) throw httpError('Informe fase, categoria e título da atividade.');
+            const { data, error } = await supabase.from('activities').insert(row).select('*').single();
             return ensureData(decorateActivity(data), error);
         }
         if (path === '/admin/age-stages') {
-            await assertStaff();
-            const { data, error } = await supabase.from('age_stages').insert(payload).select('*').single();
+            await assertContentStaff();
+            const row = { id: catalogId('stage', payload.id), slug: String(payload.slug || '').trim(), titulo: String(payload.titulo || '').trim(), descricao: String(payload.descricao || ''), min_days: Number(payload.min_days) || 0, max_days: Math.max(Number(payload.max_days) || 0, Number(payload.min_days) || 0), dados_gerais: String(payload.dados_gerais || ''), desenvolvimento: String(payload.desenvolvimento || ''), dicas: String(payload.dicas || ''), cuidados: String(payload.cuidados || '') };
+            if (!row.slug || !row.titulo) throw httpError('Informe slug e título da fase.');
+            const { data, error } = await supabase.from('age_stages').insert(row).select('*').single();
             return ensureData(data, error);
         }
         if (path === '/admin/categories') {
-            await assertStaff();
-            const { data, error } = await supabase.from('categories').insert(payload).select('*').single();
+            await assertContentStaff();
+            const row = { id: catalogId('category', payload.id), slug: String(payload.slug || '').trim(), nome: String(payload.nome || '').trim(), cor: String(payload.cor || '#E87A5D').trim(), icone: String(payload.icone || 'Sparkles').trim() };
+            if (!row.slug || !row.nome) throw httpError('Informe slug e nome da categoria.');
+            const { data, error } = await supabase.from('categories').insert(row).select('*').single();
             return ensureData(data, error);
         }
         if (path === '/admin/pinned-suggestions') {
@@ -793,19 +829,19 @@ const api = {
             return ensureData(data, error);
         }
         if (path.startsWith('/admin/activities/')) {
-            await assertStaff();
+            await assertContentStaff();
             const id = path.split('/')[3];
             const { data, error } = await supabase.from('activities').update({ ...payload, disclaimer: payload.disclaimer || DEFAULT_DISCLAIMER, updated_at: new Date().toISOString() }).eq('id', id).select('*').single();
             return ensureData(decorateActivity(data), error);
         }
         if (path.startsWith('/admin/age-stages/')) {
-            await assertStaff();
+            await assertContentStaff();
             const id = path.split('/')[3];
             const { data, error } = await supabase.from('age_stages').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id).select('*').single();
             return ensureData(data, error);
         }
         if (path.startsWith('/admin/categories/')) {
-            await assertStaff();
+            await assertContentStaff();
             const id = path.split('/')[3];
             const { data, error } = await supabase.from('categories').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', id).select('*').single();
             return ensureData(data, error);
@@ -852,21 +888,21 @@ const api = {
             return { data: null };
         }
         if (path.startsWith('/admin/activities/')) {
-            await assertStaff();
+            await assertContentStaff();
             const id = path.split('/')[3];
             const { error } = await supabase.from('activities').delete().eq('id', id);
             if (error) throw httpError(error.message);
             return { data: null };
         }
         if (path.startsWith('/admin/age-stages/')) {
-            await assertStaff();
+            await assertContentStaff();
             const id = path.split('/')[3];
             const { error } = await supabase.from('age_stages').delete().eq('id', id);
             if (error) throw httpError(error.message);
             return { data: null };
         }
         if (path.startsWith('/admin/categories/')) {
-            await assertStaff();
+            await assertContentStaff();
             const id = path.split('/')[3];
             const { error } = await supabase.from('categories').delete().eq('id', id);
             if (error) throw httpError(error.message);

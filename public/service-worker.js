@@ -1,4 +1,4 @@
-const CACHE_NAME = 'crescer-shell-v2';
+const CACHE_NAME = 'crescer-static-v3';
 const APP_SCOPE = new URL('./', self.registration.scope).href;
 const APP_SCOPE_PATH = new URL(APP_SCOPE).pathname;
 const SHELL = [

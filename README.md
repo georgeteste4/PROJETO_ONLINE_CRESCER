@@ -41,8 +41,10 @@ A pasta `database` contém as migrações na ordem abaixo:
 | `014_notifications_support_grants.sql` | Concede apenas as permissões necessárias para o módulo de notificações e suporte. |
 | `015_fix_notification_stage_audience.sql` | Corrige a segmentação por fase usando a idade calculada a partir de `children.dob` e `age_stages`. |
 | `016_fix_notification_campaign_unique.sql` | Adiciona o índice único que torna a publicação de campanhas idempotente por campanha e usuário. |
+| `017_catalog_ids_and_content_rls.sql` | Define defaults de ID textual para categorias, fases e atividades, cria `private.is_content_staff()` e limita escrita do catálogo a `super_admin` e `editor`. |
+| `018_harden_notification_trigger.sql` | Fixa o `search_path` da função privada que atualiza notificações, removendo o alerta de segurança de função mutável. |
 
-As dezesseis migrações já foram aplicadas ao projeto Supabase configurado para este frontend. O seed validado contém **5 categorias, 4 fases e 20 atividades**. Os SQLs anexados foram mantidos como referência, mas não foram executados diretamente porque usavam `password_hash`, IDs `text` e contas de teste que não são compatíveis com o Auth nativo do Supabase.
+As dezoito migrações já foram aplicadas ao projeto Supabase configurado para este frontend. O seed validado contém **5 categorias, 4 fases e 20 atividades**. Os SQLs anexados foram mantidos como referência, mas não foram executados diretamente porque usavam `password_hash`, IDs `text` e contas de teste que não são compatíveis com o Auth nativo do Supabase.
 
 ## Arquitetura de integração
 
@@ -103,6 +105,12 @@ A rota `/suporte` permite abrir chamados com assunto, categoria, prioridade e me
 
 As RPCs principais desse módulo são `publish_notification_campaign(uuid)`, `create_support_ticket(text,text,text,text)` e `reply_support_ticket(uuid,text,boolean)`. Foram validados criação e publicação de campanha segmentada, geração de inbox, abertura de chamado, resposta administrativa, leitura e atualização de estado.
 
+## IDs e permissões do catálogo
+
+As tabelas `categories`, `age_stages` e `activities` usam IDs `text` para preservar compatibilidade com o catálogo inicial. A migração `017_catalog_ids_and_content_rls.sql` adiciona defaults no banco (`category_...`, `stage_...` e `activity_...`), enquanto o frontend e a Edge Function `admin-ai` também geram IDs quando recebem conteúdo novo sem identificador. Assim, inserts diretos e fluxos administrativos não dependem apenas de uma camada específica do cliente.
+
+A escrita do catálogo agora exige `super_admin` ou `editor` por meio de `private.is_content_staff()`. Usuários autenticados continuam podendo ler o catálogo, mas `moderador` não pode criar, editar ou excluir categorias, fases, atividades, fixações ou importações. O teste integrado confirmou criação com IDs automáticos para as três entidades e bloqueio de escrita para moderador.
+
 ## Convites administrativos
 
 A tela `/admin/convites` é exclusiva de `super_admin`. A criação calcula `expires_at` a partir de `app_settings.invites.expiration_days`, gera um link compatível com o subdiretório público e tenta enviar automaticamente pelo provedor padrão; se o provedor nativo estiver selecionado ou houver falha, o link permanece disponível para compartilhamento manual. O prazo inicial é de **7 dias** e pode ser alterado em `/admin/configuracoes` entre 1 e 30 dias.
@@ -117,7 +125,7 @@ Além do build de produção, foram executados testes de convites e promoção d
 
 ## Deploy permanente e atualização contínua
 
-O frontend está preparado para publicação no GitHub Pages em [https://georgeteste4.github.io/PROJETO_ONLINE_CRESCER/](https://georgeteste4.github.io/PROJETO_ONLINE_CRESCER/). O workflow `.github/workflows/deploy-pages.yml` executa `npm ci --legacy-peer-deps`, `npm run build`, empacota a pasta `build/` e publica o artefato no ambiente `github-pages` a cada push na branch `main`. Ele também aceita execução manual por `workflow_dispatch`.
+O frontend está preparado para publicação no GitHub Pages em [https://georgeteste4.github.io/PROJETO_ONLINE_CRESCER/](https://georgeteste4.github.io/PROJETO_ONLINE_CRESCER/). O workflow `.github/workflows/deploy-pages.yml` executa `npm ci --legacy-peer-deps`, injeta `REACT_APP_SUPABASE_URL` e `REACT_APP_SUPABASE_PUBLISHABLE_KEY`, executa `npm run build`, empacota a pasta `build/` e publica o artefato no ambiente `github-pages` a cada push na branch `main`. Ele também aceita execução manual por `workflow_dispatch`.
 
 O procedimento completo, incluindo configuração inicial do Pages, caminho base do Create React App, fallback de rotas, validação, rollback, diagnóstico e proteção de secrets, está em [`docs/GITHUB_PAGES_DEPLOY.md`](docs/GITHUB_PAGES_DEPLOY.md). Para publicar uma alteração, valide localmente com `npm run build`, faça commit e execute `git push origin main`; a atualização online será iniciada automaticamente.
 
