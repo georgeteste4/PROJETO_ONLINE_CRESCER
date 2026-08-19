@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './index.css';
 import App from './App';
+import { getRuntimeBasePath } from './lib/runtime';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -21,9 +22,9 @@ root.render(
 
 if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
     window.addEventListener('load', () => {
-        const publicUrl = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
-        const serviceWorkerUrl = `${publicUrl || ''}/service-worker.js`;
-        const scope = `${publicUrl || ''}/`;
+        const publicPath = getRuntimeBasePath();
+        const serviceWorkerUrl = `${publicPath || ''}/service-worker.js`;
+        const scope = `${publicPath || ''}/`;
         navigator.serviceWorker.register(serviceWorkerUrl, { scope }).catch(() => {});
     });
 }

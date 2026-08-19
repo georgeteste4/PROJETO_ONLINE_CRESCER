@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
+import { assetUrl } from '../lib/runtime';
 
 export default function NotificationBell({ className = '' }) {
     const nav = useNavigate();
@@ -13,7 +14,7 @@ export default function NotificationBell({ className = '' }) {
             const { data } = await api.get('/notifications/unread-count');
             const nextCount = Number(data?.count) || 0;
             if (previousCount.current !== null && nextCount > previousCount.current && document.hidden && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-                new Notification('Novo aviso no Crescer+', { body: 'Você recebeu uma nova notificação dentro do Crescer+.', icon: `${process.env.PUBLIC_URL || ''}/icon-192.png` });
+                new Notification('Novo aviso no Crescer+', { body: 'Você recebeu uma nova notificação dentro do Crescer+.', icon: assetUrl('icon-192.png') });
             }
             previousCount.current = nextCount;
             setCount(nextCount);

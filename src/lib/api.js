@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { appBaseUrl } from './runtime';
 
 const DEFAULT_DISCLAIMER = 'Conteúdo educativo, não substitui avaliação profissional.';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -75,11 +76,6 @@ function decorateChild(child, stages = []) {
         age_stage_id: age_stage?.id || null,
         age_stage,
     };
-}
-
-function appBaseUrl() {
-    const publicUrl = String(process.env.PUBLIC_URL || '').replace(/\/$/, '');
-    return `${window.location.origin}${publicUrl}`;
 }
 
 function escapeHtml(value) {

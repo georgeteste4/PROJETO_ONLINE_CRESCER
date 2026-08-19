@@ -1,14 +1,14 @@
 {
-    "id": "/PROJETO_ONLINE_CRESCER/",
+    "id": "./",
     "short_name": "Crescer+",
     "name": "Crescer+ — Desenvolvimento Infantil",
     "description": "Companheiro digital do desenvolvimento do seu bebê.",
     "icons": [
-        { "src": "/PROJETO_ONLINE_CRESCER/icon-192.png", "type": "image/png", "sizes": "192x192" },
-        { "src": "/PROJETO_ONLINE_CRESCER/icon-512.png", "type": "image/png", "sizes": "512x512" }
+        { "src": "icon-192.png", "type": "image/png", "sizes": "192x192" },
+        { "src": "icon-512.png", "type": "image/png", "sizes": "512x512" }
     ],
-    "start_url": "/PROJETO_ONLINE_CRESCER/",
-    "scope": "/PROJETO_ONLINE_CRESCER/",
+    "start_url": "./",
+    "scope": "./",
     "display": "standalone",
     "display_override": ["window-controls-overlay", "standalone"],
     "orientation": "portrait",

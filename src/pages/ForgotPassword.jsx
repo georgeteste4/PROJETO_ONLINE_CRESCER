@@ -7,13 +7,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { supabase } from '../lib/supabase';
-
-function appBaseUrl() {
-    const configuredBase = process.env.PUBLIC_URL;
-    if (configuredBase && configuredBase.startsWith('http')) return configuredBase.replace(/\/$/, '');
-    if (configuredBase) return `${window.location.origin}${configuredBase}`.replace(/\/$/, '');
-    return window.location.origin;
-}
+import { appBaseUrl } from '../lib/runtime';
 
 export default function ForgotPassword() {
     const [email, setEmail] = useState('');

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { getRuntimeBasePath } from './lib/runtime';
 import { Toaster } from './components/ui/sonner';
 import ProtectedRoute from './components/ProtectedRoute';
 import Onboarding from './pages/Onboarding';
@@ -60,7 +61,7 @@ function OnboardingGate() {
 export default function App() {
     return (
         <AuthProvider>
-            <BrowserRouter basename={process.env.PUBLIC_URL || undefined}>
+            <BrowserRouter basename={getRuntimeBasePath() || undefined}>
                 <Routes>
                     <Route path="/boas-vindas" element={<OnboardingGate />} />
                     <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <title>Crescer+</title>
     <script>
-      // Preserva a rota SPA ao usar GitHub Pages em um repositório de projeto.
+      // Restaura uma rota SPA depois que o GitHub Pages entrega o fallback 404.
       const redirect = sessionStorage.redirect;
       delete sessionStorage.redirect;
       if (redirect && redirect !== location.href) history.replaceState(null, null, redirect);
@@ -14,9 +14,10 @@
     <div id="root"></div>
     <script>
       sessionStorage.redirect = location.href;
-      const path = location.pathname.split('/').filter(Boolean);
-      const repo = path.length ? `/${path[0]}` : '';
-      location.replace(`${location.origin}${repo}/`);
+      const projectPath = '/PROJETO_ONLINE_CRESCER';
+      const currentPath = location.pathname || '/';
+      const basePath = currentPath === projectPath || currentPath.startsWith(`${projectPath}/`) ? projectPath : '';
+      location.replace(`${location.origin}${basePath}/`);
     </script>
   </body>
 </html>
