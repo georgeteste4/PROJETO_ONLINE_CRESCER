@@ -107,7 +107,7 @@ export default function Register() {
 
                         <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-[#FAF7F0] p-3.5">
                             <Checkbox data-testid="register-accept-terms" checked={accept} onCheckedChange={(value) => setAccept(Boolean(value))} className="mt-0.5" />
-                            <span className="text-sm leading-relaxed text-[#766862]">Concordo com os termos de uso e a política de privacidade, conforme a LGPD.</span>
+                            <span className="text-sm leading-relaxed text-[#766862]">Concordo com os <Link to="/termos" className="font-bold text-[#C9684C] hover:underline">termos de uso</Link> e a <Link to="/privacidade" className="font-bold text-[#C9684C] hover:underline">política de privacidade</Link>, conforme a LGPD.</span>
                         </label>
 
                         {error && <div role="alert" data-testid="register-error" className="rounded-2xl bg-[#FDECE8] px-4 py-3 text-sm leading-relaxed text-[#A54139]">{error}</div>}

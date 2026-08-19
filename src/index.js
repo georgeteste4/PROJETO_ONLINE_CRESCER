@@ -21,6 +21,9 @@ root.render(
 
 if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+        const publicUrl = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
+        const serviceWorkerUrl = `${publicUrl || ''}/service-worker.js`;
+        const scope = `${publicUrl || ''}/`;
+        navigator.serviceWorker.register(serviceWorkerUrl, { scope }).catch(() => {});
     });
 }

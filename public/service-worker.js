@@ -1,39 +1,32 @@
-const CACHE_NAME = 'crescer-shell-v1';
-const SHELL = ['/', '/index.html', '/manifest.json'];
+const CACHE_NAME = 'crescer-shell-v2';
+const APP_SCOPE = new URL('./', self.registration.scope).href;
+const APP_SCOPE_PATH = new URL(APP_SCOPE).pathname;
+const SHELL = [
+    APP_SCOPE,
+    new URL('./index.html', APP_SCOPE).href,
+    new URL('./manifest.json', APP_SCOPE).href,
+];
 
-self.addEventListener('install', (e) => {
-    e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(SHELL)).catch(() => {}));
+self.addEventListener('install', (event) => {
+    event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)).catch(() => undefined));
     self.skipWaiting();
 });
 
-self.addEventListener('activate', (e) => {
-    e.waitUntil(
-        caches.keys().then((keys) =>
-            Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-        )
-    );
+self.addEventListener('activate', (event) => {
+    event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))));
     self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-    const req = event.request;
-    if (req.method !== 'GET') return;
-    const url = new URL(req.url);
-    if (url.pathname.startsWith('/api/')) return; // never cache API
-    event.respondWith(
-        caches.match(req).then((cached) => {
-            return (
-                cached ||
-                fetch(req)
-                    .then((res) => {
-                        if (res && res.status === 200 && res.type === 'basic') {
-                            const clone = res.clone();
-                            caches.open(CACHE_NAME).then((c) => c.put(req, clone));
-                        }
-                        return res;
-                    })
-                    .catch(() => caches.match('/index.html'))
-            );
-        })
-    );
+    const request = event.request;
+    if (request.method !== 'GET') return;
+    const url = new URL(request.url);
+    if (url.origin !== self.location.origin || !url.pathname.startsWith(APP_SCOPE_PATH)) return;
+    event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        }
+        return response;
+    }).catch(() => caches.match(new URL('./index.html', APP_SCOPE).href))));
 });

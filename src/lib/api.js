@@ -182,6 +182,21 @@ async function assertStaff() {
     return profile;
 }
 
+async function assertContentStaff() {
+    const profile = await assertStaff();
+    if (!['super_admin', 'editor'].includes(profile.role)) {
+        throw httpError('Apenas administradores de conteúdo podem usar esta área.', 403);
+    }
+    return profile;
+}
+
+async function invokeAdminAI(payload) {
+    const { data, error } = await supabase.functions.invoke('admin-ai', { body: payload });
+    if (error) throw httpError(error.message || 'Não foi possível comunicar com o serviço de IA.');
+    if (data?.error) throw httpError(data.error);
+    return data?.data ?? data;
+}
+
 const api = {
     async get(path, config = {}) {
         if (path === '/auth/me') return { data: await currentProfile() };
@@ -328,6 +343,26 @@ const api = {
             const { data, error } = await supabase.from('invites').select('id, email, role, token, expires_at, invited_by_name, used, created_at').order('created_at', { ascending: false });
             return ensureData(data || [], error);
         }
+        if (path === '/admin/settings') {
+            await assertContentStaff();
+            const { data, error } = await supabase.from('app_settings').select('key, value_json, updated_by, updated_at').order('key', { ascending: true });
+            return ensureData(data || [], error);
+        }
+        if (path === '/admin/prompts') {
+            await assertContentStaff();
+            const { data, error } = await supabase.from('admin_prompts').select('prompt_key, kind, name, system_prompt, user_prompt, output_schema, updated_by, updated_at').order('kind', { ascending: true }).order('name', { ascending: true });
+            return ensureData(data || [], error);
+        }
+        if (path === '/admin/ai-models') {
+            await assertContentStaff();
+            return { data: await invokeAdminAI({ action: 'models' }) };
+        }
+        if (path === '/admin/ai-jobs') {
+            await assertContentStaff();
+            const limit = Math.min(100, Math.max(1, Number(config.params?.limit) || 40));
+            const { data, error } = await supabase.from('ai_generation_jobs').select('id, kind, model, prompt_key, input_json, output_json, status, error_message, created_by, created_at, completed_at').order('created_at', { ascending: false }).limit(limit);
+            return ensureData(data || [], error);
+        }
         if (path === '/admin/pinned-suggestions') {
             await assertStaff();
             let query = supabase.from('pinned_suggestions').select('id, age_stage_id, activity_id, created_at, activities(id, titulo), age_stages(id, titulo)').order('created_at', { ascending: true });
@@ -437,6 +472,19 @@ const api = {
             const { data, error } = await supabase.from('pinned_suggestions').insert(payload).select('*').single();
             return ensureData(data, error);
         }
+        if (path === '/admin/prompts') {
+            const profile = await assertContentStaff();
+            const { data, error } = await supabase.from('admin_prompts').insert({ prompt_key: payload.prompt_key, kind: payload.kind, name: payload.name, system_prompt: payload.system_prompt || '', user_prompt: payload.user_prompt || '', output_schema: payload.output_schema || {}, updated_by: profile.id }).select('prompt_key, kind, name, system_prompt, user_prompt, output_schema, updated_by, updated_at').single();
+            return ensureData(data, error);
+        }
+        if (path === '/admin/ai-generate') {
+            await assertContentStaff();
+            return { data: await invokeAdminAI({ action: 'generate', ...payload }) };
+        }
+        if (path.startsWith('/admin/ai-apply/')) {
+            await assertContentStaff();
+            return { data: await invokeAdminAI({ action: 'apply', job_id: path.split('/')[3] }) };
+        }
         if (path === '/admin/invites') {
             const profile = await assertStaff();
             const token = crypto.randomUUID();
@@ -457,6 +505,19 @@ const api = {
     },
 
     async put(path, payload) {
+        if (path.startsWith('/admin/settings/')) {
+            const profile = await assertContentStaff();
+            const key = decodeURIComponent(path.split('/')[3]);
+            const value_json = Object.prototype.hasOwnProperty.call(payload || {}, 'value_json') ? payload.value_json : payload?.value;
+            const { data, error } = await supabase.from('app_settings').upsert({ key, value_json: value_json ?? null, updated_by: profile.id, updated_at: new Date().toISOString() }, { onConflict: 'key' }).select('key, value_json, updated_by, updated_at').single();
+            return ensureData(data, error);
+        }
+        if (path.startsWith('/admin/prompts/')) {
+            const profile = await assertContentStaff();
+            const prompt_key = decodeURIComponent(path.split('/')[3]);
+            const { data, error } = await supabase.from('admin_prompts').update({ kind: payload.kind, name: payload.name, system_prompt: payload.system_prompt, user_prompt: payload.user_prompt, output_schema: payload.output_schema, updated_by: profile.id, updated_at: new Date().toISOString() }).eq('prompt_key', prompt_key).select('prompt_key, kind, name, system_prompt, user_prompt, output_schema, updated_by, updated_at').single();
+            return ensureData(data, error);
+        }
         if (path.startsWith('/children/')) {
             const profile = await currentProfile();
             const id = path.split('/')[2];
@@ -505,6 +566,13 @@ const api = {
             const profile = await currentProfile();
             const id = path.split('/')[2];
             const { error } = await supabase.from('children').delete().eq('id', id).eq('user_id', profile.id);
+            if (error) throw httpError(error.message);
+            return { data: null };
+        }
+        if (path.startsWith('/admin/prompts/')) {
+            await assertContentStaff();
+            const prompt_key = decodeURIComponent(path.split('/')[3]);
+            const { error } = await supabase.from('admin_prompts').delete().eq('prompt_key', prompt_key);
             if (error) throw httpError(error.message);
             return { data: null };
         }

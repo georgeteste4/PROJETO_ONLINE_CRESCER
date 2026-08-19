@@ -8,7 +8,7 @@ import {
     DropdownMenu, DropdownMenuContent, DropdownMenuItem,
     DropdownMenuTrigger, DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
-import { Clock, ChevronRight, Baby, ChevronDown, Plus, Info, Sparkles, Shield, ShieldCheck } from 'lucide-react';
+import { Clock, ChevronRight, Baby, ChevronDown, Plus, Info, Sparkles, Shield, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
 
 function greet() {
     const h = new Date().getHours();
@@ -33,15 +33,37 @@ export default function Dashboard() {
     const [suggestions, setSuggestions] = useState([]);
     const [stage, setStage] = useState(null);
     const [tab, setTab] = useState('geral'); // geral | desenvolvimento | dicas | cuidados
+    const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+    const [suggestionsError, setSuggestionsError] = useState('');
+    const [stageError, setStageError] = useState('');
 
-    useEffect(() => {
-        api.get('/activities/suggestions').then((r) => setSuggestions(r.data)).catch(() => {});
-    }, [activeChild?.id]);
+    const loadSuggestions = async () => {
+        setLoadingSuggestions(true);
+        setSuggestionsError('');
+        try {
+            const { data } = await api.get('/activities/suggestions');
+            setSuggestions(data || []);
+        } catch (error) {
+            setSuggestionsError(error.response?.data?.detail || 'Não foi possível carregar as sugestões.');
+        } finally {
+            setLoadingSuggestions(false);
+        }
+    };
 
-    useEffect(() => {
-        if (!activeChild?.age_stage_id) { setStage(null); return; }
-        api.get(`/age-stages/${activeChild.age_stage_id}`).then((r) => setStage(r.data)).catch(() => setStage(null));
-    }, [activeChild?.age_stage_id]);
+    const loadStage = async () => {
+        if (!activeChild?.age_stage_id) { setStage(null); setStageError(''); return; }
+        setStageError('');
+        try {
+            const { data } = await api.get(`/age-stages/${activeChild.age_stage_id}`);
+            setStage(data);
+        } catch (error) {
+            setStage(null);
+            setStageError(error.response?.data?.detail || 'Não foi possível carregar os detalhes desta fase.');
+        }
+    };
+
+    useEffect(() => { loadSuggestions(); }, [activeChild?.id]); // eslint-disable-line
+    useEffect(() => { loadStage(); }, [activeChild?.age_stage_id]); // eslint-disable-line
 
     return (
         <AppShell>
@@ -136,6 +158,7 @@ export default function Dashboard() {
                                 {stage.descricao}
                             </p>
                         )}
+                        {stageError && <div className="mt-4 rounded-2xl bg-[#FFF5D9] text-[#7A5B18] p-3 text-sm flex items-center gap-2"><AlertCircle size={16} />{stageError}<button type="button" onClick={loadStage} className="ml-auto font-bold underline">Tentar</button></div>}
                     </div>
                 ) : (
                     <div className="mt-6 p-6 rounded-3xl bg-white shadow-warm border border-[#EADFD8] text-center">
@@ -191,20 +214,26 @@ export default function Dashboard() {
 
                 <div className="mt-8">
                     <div className="flex items-baseline justify-between">
-                        <h2 className="font-display text-xl font-bold text-ink">Sugestões de hoje</h2>
-                        <button data-testid="see-all-btn" onClick={() => nav('/atividades')} className="text-sm text-coral font-semibold">
-                            Ver todas
-                        </button>
+                        <div><p className="text-xs uppercase tracking-[0.16em] font-bold text-coral">Curadoria do dia</p><h2 className="font-display text-xl font-bold text-ink mt-1">Hoje para vocês</h2></div>
+                        <button data-testid="see-all-btn" onClick={() => nav('/atividades')} className="text-sm text-coral font-semibold">Ver todas</button>
                     </div>
 
-                    {suggestions.length === 0 ? (
-                        <div data-testid="empty-suggestions" className="mt-4 p-6 rounded-3xl bg-[#FCF6EA] text-center">
-                            <p className="font-display font-bold text-ink">Vamos começar nossa jornada!</p>
-                            <p className="text-sm text-ink-2 mt-1">Escolha uma atividade para hoje.</p>
-                        </div>
+                    {loadingSuggestions ? (
+                        <div className="mt-4 space-y-3" aria-busy="true"><div className="h-44 rounded-3xl bg-white/70 animate-pulse" /><div className="h-20 rounded-3xl bg-white/70 animate-pulse" /><div className="h-20 rounded-3xl bg-white/70 animate-pulse" /></div>
+                    ) : suggestionsError ? (
+                        <div className="mt-4 p-6 rounded-3xl bg-white border border-[#EADFD8] text-center"><AlertCircle className="mx-auto text-coral" size={24} /><p className="font-display font-bold text-ink mt-2">Não conseguimos carregar as sugestões</p><p className="text-sm text-ink-2 mt-1">{suggestionsError}</p><button type="button" onClick={loadSuggestions} className="mt-4 inline-flex items-center gap-2 h-11 px-4 rounded-full bg-ink text-white text-sm font-bold"><RefreshCw size={15} /> Tentar novamente</button></div>
+                    ) : suggestions.length === 0 ? (
+                        <div data-testid="empty-suggestions" className="mt-4 p-6 rounded-3xl bg-[#FCF6EA] text-center"><p className="font-display font-bold text-ink">Vamos começar nossa jornada!</p><p className="text-sm text-ink-2 mt-1">Escolha uma atividade para hoje.</p></div>
                     ) : (
-                        <div className="mt-4 space-y-3">
-                            {suggestions.map((a, i) => (
+                        <>
+                            <button type="button" onClick={() => nav(`/atividade/${suggestions[0].id}`)} className="mt-4 w-full text-left rounded-[2rem] overflow-hidden bg-ink shadow-warm relative min-h-[190px] group" data-testid="today-hero-card">
+                                <div className="absolute inset-0 bg-gradient-to-br from-[#3B3330] via-[#2A2523] to-[#5D4740]" />
+                                <div className="absolute -right-10 -top-12 w-44 h-44 rounded-full bg-coral/30 blur-2xl" />
+                                <div className="absolute -bottom-20 -left-8 w-40 h-40 rounded-full bg-[#F2CC8F]/20 blur-2xl" />
+                                <div className="relative p-6 flex flex-col justify-between min-h-[190px]"><div className="flex items-center gap-2 text-[#FDE5D6] text-xs font-bold uppercase tracking-[0.16em]"><Sparkles size={14} /> Uma ideia simples para hoje</div><div className="mt-8"><h3 className="font-display text-2xl font-bold text-white leading-tight max-w-[80%]">{suggestions[0].titulo}</h3><div className="flex items-center gap-3 mt-3 text-sm text-[#FBEDE5]"><span className="inline-flex items-center gap-1"><Clock size={14} /> {suggestions[0].duracao_min} min</span><span className="text-[#DCC9C0]">•</span><span>{CAT_NAMES[suggestions[0].category_id] || suggestions[0].category_name || 'Para explorar juntos'}</span><ChevronRight size={18} className="ml-auto" /></div></div></div>
+                            </button>
+                            <div className="mt-4 space-y-3">
+                            {suggestions.slice(1).map((a, i) => (
                                 <button
                                     key={a.id}
                                     data-testid={`suggestion-card-${i}`}
@@ -230,7 +259,8 @@ export default function Dashboard() {
                                     <ChevronRight size={20} className="text-ink-2 flex-shrink-0" />
                                 </button>
                             ))}
-                        </div>
+                            </div>
+                        </>
                     )}
                 </div>
             </div>

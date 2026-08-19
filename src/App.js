@@ -22,6 +22,9 @@ import AdminCategories from './pages/admin/AdminCategories';
 import AdminPinned from './pages/admin/AdminPinned';
 import AdminInvites from './pages/admin/AdminInvites';
 import AdminImport from './pages/admin/AdminImport';
+import AdminSettings from './pages/admin/AdminSettings';
+import AdminAIGeneration from './pages/admin/AdminAIGeneration';
+import Legal from './pages/Legal';
 import AcceptInvite from './pages/AcceptInvite';
 
 const ADMIN_ROLES = ['super_admin', 'editor', 'moderador'];
@@ -58,6 +61,8 @@ export default function App() {
                     <Route path="/cadastro" element={<PublicOnly><Register /></PublicOnly>} />
                     <Route path="/recuperar-senha" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
                     <Route path="/redefinir-senha" element={<ResetPassword />} />
+                    <Route path="/termos" element={<Legal />} />
+                    <Route path="/privacidade" element={<Legal />} />
                     <Route path="/convite/:token" element={<AcceptInvite />} />
                     <Route path="/cadastro-crianca" element={<ProtectedRoute><ChildRegistration /></ProtectedRoute>} />
                     <Route path="/" element={<ProtectedRoute requireChild><Dashboard /></ProtectedRoute>} />
@@ -79,6 +84,8 @@ export default function App() {
                         <Route path="fases" element={<ProtectedRoute requireRole={CONTENT_ROLES}><AdminAgeStages /></ProtectedRoute>} />
                         <Route path="categorias" element={<ProtectedRoute requireRole={CONTENT_ROLES}><AdminCategories /></ProtectedRoute>} />
                         <Route path="sugestoes" element={<ProtectedRoute requireRole={CONTENT_ROLES}><AdminPinned /></ProtectedRoute>} />
+                        <Route path="configuracoes" element={<ProtectedRoute requireRole={['super_admin']}><AdminSettings /></ProtectedRoute>} />
+                        <Route path="gerar-ia" element={<ProtectedRoute requireRole={CONTENT_ROLES}><AdminAIGeneration /></ProtectedRoute>} />
                     </Route>
 
                     <Route path="*" element={<Navigate to="/boas-vindas" replace />} />
