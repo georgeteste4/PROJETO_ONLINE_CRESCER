@@ -90,7 +90,7 @@ O domínio personalizado antigo foi removido da configuração do Pages. A API d
 
 <https://georgeteste4.github.io/PROJETO_ONLINE_CRESCER/>
 
-A CDN do GitHub pode conservar temporariamente um redirecionamento antigo da raiz por alguns minutos. Durante essa janela, os assets diretos já respondem corretamente; após a expiração do cache, a raiz passa a responder sem o redirecionamento. Não é necessário alterar o código para essa expiração.
+Durante alguns minutos, a CDN do GitHub conservou um redirecionamento antigo da raiz para o domínio personalizado removido. Os assets diretos permaneceram disponíveis com HTTP 200 durante essa janela. Após a expiração do cache, a raiz foi validada com HTTP 200, título `Crescer+ — Desenvolvimento Infantil` e bundle `main.07be612d.js`, sem redirecionamento.
 
 ## PWA e cache
 
