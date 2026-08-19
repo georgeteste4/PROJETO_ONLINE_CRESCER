@@ -37,8 +37,12 @@ A pasta `database` contém as migrações na ordem abaixo:
 | `010_email_providers_and_audit.sql` | Provedores nativo/Resend/Mailtrap, registros de entrega, auditoria por triggers e RPC segura de leitura. |
 | `011_audit_user_activity.sql` | Amplia a auditoria para conclusões, favoritos e consentimentos do usuário. |
 | `012_harden_audit_redaction.sql` | Remove dados pessoais desnecessários dos detalhes dos logs. |
+| `013_notifications_support.sql` | Cria campanhas segmentadas, preferências de notificação, caixa de entrada, chamados e mensagens de suporte, além das RPCs transacionais. |
+| `014_notifications_support_grants.sql` | Concede apenas as permissões necessárias para o módulo de notificações e suporte. |
+| `015_fix_notification_stage_audience.sql` | Corrige a segmentação por fase usando a idade calculada a partir de `children.dob` e `age_stages`. |
+| `016_fix_notification_campaign_unique.sql` | Adiciona o índice único que torna a publicação de campanhas idempotente por campanha e usuário. |
 
-As doze migrações já foram aplicadas ao projeto Supabase configurado para este frontend. O seed validado contém **5 categorias, 4 fases e 20 atividades**. Os SQLs anexados foram mantidos como referência, mas não foram executados diretamente porque usavam `password_hash`, IDs `text` e contas de teste que não são compatíveis com o Auth nativo do Supabase.
+As dezesseis migrações já foram aplicadas ao projeto Supabase configurado para este frontend. O seed validado contém **5 categorias, 4 fases e 20 atividades**. Os SQLs anexados foram mantidos como referência, mas não foram executados diretamente porque usavam `password_hash`, IDs `text` e contas de teste que não são compatíveis com o Auth nativo do Supabase.
 
 ## Arquitetura de integração
 
@@ -89,6 +93,16 @@ A auditoria possui RLS de leitura restrito a `super_admin`; gravações de mudan
 
 O app agora possui um prompt de instalação contextual para dispositivos móveis. Em navegadores que oferecem `beforeinstallprompt`, o botão abre o diálogo nativo; em iPhone/iPad, exibe as instruções para usar Compartilhar > Adicionar à Tela de Início. O prompt respeita o modo standalone, o evento `appinstalled` e o fechamento pelo usuário. O manifest, o service worker e o `apple-touch-icon` permanecem configurados para `/PROJETO_ONLINE_CRESCER/`.
 
+## Notificações e suporte
+
+A rota protegida `/notificacoes` reúne a caixa de entrada do usuário, preferências de recebimento e o CTA de contato. O `NotificationBell` aparece no início após o login, exibe a contagem de não lidas, atualiza periodicamente e solicita permissão para notificações do navegador quando o ambiente oferece essa capacidade. A funcionalidade não depende de push offline pesado: a instalação PWA usa cache leve do shell estático e as notificações persistidas são entregues pelo Supabase.
+
+A rota `/admin/notificacoes` é exclusiva de `super_admin` e oferece CRUD de campanhas com título, mensagem, ação contextual, estado de rascunho, publicação/agendamento e segmentação por usuário, papel ou fase da criança. A publicação chama `publish_notification_campaign(uuid)`, que calcula a audiência e insere a inbox de forma idempotente com o índice `uq_notifications_campaign_user`. A segmentação por fase usa `(current_date - children.dob) between age_stages.min_days and age_stages.max_days`.
+
+A rota `/suporte` permite abrir chamados com assunto, categoria, prioridade e mensagem, além de acompanhar respostas e status. A rota `/admin/suporte`, acessível a `admin`, `editor`, `moderator` e `super_admin`, lista chamados, filtra por status/prioridade, permite responder publicamente, registrar notas internas e atualizar a prioridade ou o status. Como `support_tickets` possui duas relações com `users`, as consultas usam explicitamente `users!support_tickets_user_id_fkey(email, name)` para evitar a ambiguidade do PostgREST.
+
+As RPCs principais desse módulo são `publish_notification_campaign(uuid)`, `create_support_ticket(text,text,text,text)` e `reply_support_ticket(uuid,text,boolean)`. Foram validados criação e publicação de campanha segmentada, geração de inbox, abertura de chamado, resposta administrativa, leitura e atualização de estado.
+
 ## Convites administrativos
 
 A tela `/admin/convites` é exclusiva de `super_admin`. A criação calcula `expires_at` a partir de `app_settings.invites.expiration_days`, gera um link compatível com o subdiretório público e tenta enviar automaticamente pelo provedor padrão; se o provedor nativo estiver selecionado ou houver falha, o link permanece disponível para compartilhamento manual. O prazo inicial é de **7 dias** e pode ser alterado em `/admin/configuracoes` entre 1 e 30 dias.
@@ -96,5 +110,9 @@ A tela `/admin/convites` é exclusiva de `super_admin`. A criação calcula `exp
 O convidado pode criar uma conta diretamente pelo link ou entrar com uma conta existente. Em ambos os casos, o Supabase chama a RPC `public.accept_invite(text)`, que valida o token, confere o e-mail autenticado, promove o perfil ao papel convidado e marca o convite como usado em uma transação. Tokens inválidos, expirados ou já utilizados não são expostos pela leitura pública.
 
 A validação automatizada temporária confirmou criação, leitura pública pendente, aceite, promoção para editor e limpeza dos dados de teste. O teste foi executado com as contas de demonstração e não deixou convite ou alteração de papel persistente.
+
+## Verificações recentes
+
+Além do build de produção, foram executados testes de convites e promoção de papel, provedor nativo de e-mail, auditoria de atividades, campanhas de notificações, suporte com resposta administrativa e consulta PostgREST da relação usuário-ticket. O preview público foi atualizado e verificado nas rotas `/notificacoes` e `/suporte`, incluindo formulário de contato, estados vazios e navegação mobile.
 
 O conteúdo do app é educativo e não substitui avaliação profissional.

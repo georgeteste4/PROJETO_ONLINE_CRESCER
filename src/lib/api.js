@@ -268,6 +268,36 @@ const api = {
             const { data, error } = await supabase.from('age_stages').select('*').eq('id', path.split('/')[2]).single();
             return ensureData(data, error);
         }
+        if (path === '/notifications') {
+            const profile = await currentProfile();
+            const now = new Date().toISOString();
+            const { data, error } = await supabase.from('notifications').select('id, user_id, kind, title, body, read_at, created_at, campaign_id, priority, action_url, expires_at').eq('user_id', profile.id).or(`expires_at.is.null,expires_at.gt.${now}`).order('created_at', { ascending: false }).limit(50);
+            return ensureData(data || [], error);
+        }
+        if (path === '/notifications/unread-count') {
+            const profile = await currentProfile();
+            const { count, error } = await supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', profile.id).is('read_at', null);
+            if (error) throw httpError(error.message);
+            return { data: { count: count || 0 } };
+        }
+        if (path === '/notification-preferences') {
+            const profile = await currentProfile();
+            const { data, error } = await supabase.from('notification_preferences').select('user_id, in_app_enabled, browser_enabled, email_enabled, updated_at').eq('user_id', profile.id).maybeSingle();
+            if (error) throw httpError(error.message);
+            return { data: data || { user_id: profile.id, in_app_enabled: true, browser_enabled: false, email_enabled: true } };
+        }
+        if (path === '/support/tickets') {
+            const { data, error } = await supabase.from('support_tickets').select('id, user_id, subject, category, priority, status, assigned_to, last_message_at, created_at, updated_at').order('updated_at', { ascending: false }).limit(50);
+            return ensureData(data || [], error);
+        }
+        if (path.startsWith('/support/tickets/')) {
+            const id = path.split('/')[3];
+            const ticket = await supabase.from('support_tickets').select('id, user_id, subject, category, priority, status, assigned_to, last_message_at, created_at, updated_at').eq('id', id).single();
+            if (ticket.error) throw httpError(ticket.error.message);
+            const messages = await supabase.from('support_messages').select('id, ticket_id, author_user_id, body, internal_note, created_at').eq('ticket_id', id).order('created_at', { ascending: true });
+            if (messages.error) throw httpError(messages.error.message);
+            return { data: { ...ticket.data, messages: messages.data || [] } };
+        }
         if (path === '/favorites') {
             const child = await activeChild();
             if (!child) return { data: [] };
@@ -305,6 +335,33 @@ const api = {
             if (error) throw httpError(error.message);
             if (!data) throw httpError('Convite inválido, expirado ou já utilizado.', 404);
             return { data: decorateInvite(data) };
+        }
+        if (path === '/admin/notification-campaigns') {
+            await assertSuperAdmin();
+            let query = supabase.from('notification_campaigns').select('id, title, body, kind, priority, action_url, expires_at, audience_type, audience_value, status, scheduled_for, recipient_count, created_by, published_by, published_at, created_at, updated_at').order('created_at', { ascending: false }).limit(100);
+            if (config.params?.status) query = query.eq('status', config.params.status);
+            const { data, error } = await query;
+            await recordAudit('SELECT', 'notification_campaigns', null, { count: data?.length || 0, filters: config.params || {} });
+            return ensureData(data || [], error);
+        }
+        if (path === '/admin/support-tickets') {
+            await assertStaff();
+            let query = supabase.from('support_tickets').select('id, user_id, subject, category, priority, status, assigned_to, last_message_at, created_at, updated_at, users!support_tickets_user_id_fkey(email, name)').order('updated_at', { ascending: false }).limit(100);
+            if (config.params?.status) query = query.eq('status', config.params.status);
+            if (config.params?.priority) query = query.eq('priority', config.params.priority);
+            if (config.params?.q) query = query.ilike('subject', `%${String(config.params.q).replace(/[%,]/g, '')}%`);
+            const { data, error } = await query;
+            await recordAudit('SELECT', 'support_tickets', null, { count: data?.length || 0, filters: config.params || {} });
+            return ensureData(data || [], error);
+        }
+        if (path.startsWith('/admin/support-tickets/')) {
+            await assertStaff();
+            const id = path.split('/')[3];
+            const ticket = await supabase.from('support_tickets').select('id, user_id, subject, category, priority, status, assigned_to, last_message_at, created_at, updated_at, users!support_tickets_user_id_fkey(email, name)').eq('id', id).single();
+            if (ticket.error) throw httpError(ticket.error.message);
+            const messages = await supabase.from('support_messages').select('id, ticket_id, author_user_id, body, internal_note, created_at').eq('ticket_id', id).order('created_at', { ascending: true });
+            if (messages.error) throw httpError(messages.error.message);
+            return { data: { ...ticket.data, messages: messages.data || [] } };
         }
         if (path === '/admin/stats') {
             await assertStaff();
@@ -462,6 +519,48 @@ const api = {
     },
 
     async post(path, payload, config = {}) {
+        if (path === '/notifications/read-all') {
+            const profile = await currentProfile();
+            const { error } = await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', profile.id).is('read_at', null);
+            if (error) throw httpError(error.message);
+            return { data: { ok: true } };
+        }
+        if (path.startsWith('/notifications/') && path.endsWith('/read')) {
+            const profile = await currentProfile();
+            const id = path.split('/')[2];
+            const { data, error } = await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id).eq('user_id', profile.id).select('id, read_at').single();
+            return ensureData(data, error);
+        }
+        if (path === '/notification-preferences') {
+            const profile = await currentProfile();
+            const { data, error } = await supabase.from('notification_preferences').upsert({ user_id: profile.id, in_app_enabled: payload.in_app_enabled !== false, browser_enabled: Boolean(payload.browser_enabled), email_enabled: payload.email_enabled !== false, updated_at: new Date().toISOString() }, { onConflict: 'user_id' }).select('user_id, in_app_enabled, browser_enabled, email_enabled, updated_at').single();
+            return ensureData(data, error);
+        }
+        if (path === '/support/tickets') {
+            const { data, error } = await supabase.rpc('create_support_ticket', { p_subject: payload.subject, p_category: payload.category, p_priority: payload.priority, p_body: payload.body });
+            if (error) throw httpError(error.message);
+            return { data: { id: data } };
+        }
+        if (path.startsWith('/support/tickets/') && path.endsWith('/messages')) {
+            const id = path.split('/')[3];
+            const { data, error } = await supabase.rpc('reply_support_ticket', { p_ticket_id: id, p_body: payload.body, p_internal_note: false });
+            if (error) throw httpError(error.message);
+            return { data: { id: data } };
+        }
+        if (path.startsWith('/admin/notification-campaigns/') && path.endsWith('/publish')) {
+            await assertSuperAdmin();
+            const id = path.split('/')[3];
+            const { data, error } = await supabase.rpc('publish_notification_campaign', { p_campaign_id: id });
+            if (error) throw httpError(error.message);
+            return { data: { recipient_count: data || 0 } };
+        }
+        if (path.startsWith('/admin/support-tickets/') && path.endsWith('/messages')) {
+            await assertStaff();
+            const id = path.split('/')[3];
+            const { data, error } = await supabase.rpc('reply_support_ticket', { p_ticket_id: id, p_body: payload.body, p_internal_note: Boolean(payload.internal_note) });
+            if (error) throw httpError(error.message);
+            return { data: { id: data } };
+        }
         if (path === '/auth/login') {
             const { data, error } = await supabase.auth.signInWithPassword({ email: payload.email, password: payload.password });
             if (error) throw httpError(error.message, 401);
@@ -548,6 +647,11 @@ const api = {
             const { data, error } = await supabase.from('activities').upsert(items.map((item) => ({ ...item, disclaimer: item.disclaimer || DEFAULT_DISCLAIMER })), { onConflict: 'id' }).select('id');
             return ensureData({ created_count: data?.length || 0 }, error);
         }
+        if (path === '/admin/notification-campaigns') {
+            const profile = await assertSuperAdmin();
+            const { data, error } = await supabase.from('notification_campaigns').insert({ title: String(payload.title || '').trim(), body: String(payload.body || '').trim(), kind: payload.kind || 'announcement', priority: payload.priority || 'normal', action_url: payload.action_url || null, expires_at: payload.expires_at || null, audience_type: payload.audience_type || 'all', audience_value: payload.audience_value || null, status: payload.scheduled_for ? 'scheduled' : 'draft', scheduled_for: payload.scheduled_for || null, created_by: profile.id }).select('id, title, body, kind, priority, action_url, expires_at, audience_type, audience_value, status, scheduled_for, recipient_count, created_at, updated_at').single();
+            return ensureData(data, error);
+        }
         if (path === '/admin/activities') {
             await assertStaff();
             const { data, error } = await supabase.from('activities').insert({ ...payload, disclaimer: payload.disclaimer || DEFAULT_DISCLAIMER }).select('*').single();
@@ -629,6 +733,24 @@ const api = {
     },
 
     async put(path, payload) {
+        if (path === '/notification-preferences') {
+            const profile = await currentProfile();
+            const { data, error } = await supabase.from('notification_preferences').upsert({ user_id: profile.id, in_app_enabled: payload.in_app_enabled !== false, browser_enabled: Boolean(payload.browser_enabled), email_enabled: payload.email_enabled !== false, updated_at: new Date().toISOString() }, { onConflict: 'user_id' }).select('user_id, in_app_enabled, browser_enabled, email_enabled, updated_at').single();
+            return ensureData(data, error);
+        }
+        if (path.startsWith('/admin/notification-campaigns/')) {
+            const profile = await assertSuperAdmin();
+            const id = path.split('/')[3];
+            const allowed = { title: String(payload.title || '').trim(), body: String(payload.body || '').trim(), kind: payload.kind || 'announcement', priority: payload.priority || 'normal', action_url: payload.action_url || null, expires_at: payload.expires_at || null, audience_type: payload.audience_type || 'all', audience_value: payload.audience_value || null, status: payload.status || 'draft', scheduled_for: payload.scheduled_for || null, updated_at: new Date().toISOString() };
+            const { data, error } = await supabase.from('notification_campaigns').update(allowed).eq('id', id).select('id, title, body, kind, priority, action_url, expires_at, audience_type, audience_value, status, scheduled_for, recipient_count, created_at, updated_at').single();
+            return ensureData(data, error);
+        }
+        if (path.startsWith('/admin/support-tickets/')) {
+            await assertStaff();
+            const id = path.split('/')[3];
+            const { data, error } = await supabase.from('support_tickets').update({ status: payload.status, priority: payload.priority, category: payload.category, assigned_to: payload.assigned_to || null, updated_at: new Date().toISOString() }).eq('id', id).select('id, status, priority, category, assigned_to, updated_at').single();
+            return ensureData(data, error);
+        }
         if (path.startsWith('/admin/email-providers/')) {
             const profile = await assertSuperAdmin();
             const provider = decodeURIComponent(path.split('/')[3]);
@@ -702,6 +824,13 @@ const api = {
     },
 
     async delete(path) {
+        if (path.startsWith('/admin/notification-campaigns/')) {
+            await assertSuperAdmin();
+            const id = path.split('/')[3];
+            const { error } = await supabase.from('notification_campaigns').delete().eq('id', id).in('status', ['draft', 'archived']);
+            if (error) throw httpError(error.message);
+            return { data: null };
+        }
         if (path === '/auth/account') {
             const { error } = await supabase.rpc('delete_my_account');
             if (error) throw httpError(error.message);

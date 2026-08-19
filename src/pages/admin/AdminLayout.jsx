@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-    LayoutDashboard, Users, BookOpen, Layers, Tags, Pin, LogOut, ArrowLeft, ShieldCheck, Upload, Mail, Settings, Wand2, ClipboardList,
+    LayoutDashboard, Users, BookOpen, Layers, Tags, Pin, LogOut, ArrowLeft, ShieldCheck, Upload, Mail, Settings, Wand2, ClipboardList, Bell, LifeBuoy,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 
@@ -17,6 +17,8 @@ const items = [
     { to: '/admin/gerar-ia', label: 'Gerar com IA', icon: Wand2, testId: 'admin-nav-ai', roles: ['super_admin', 'editor'] },
     { to: '/admin/configuracoes', label: 'Configurações', icon: Settings, testId: 'admin-nav-settings', roles: ['super_admin'] },
     { to: '/admin/auditoria', label: 'Auditoria', icon: ClipboardList, testId: 'admin-nav-audit', roles: ['super_admin'] },
+    { to: '/admin/notificacoes', label: 'Notificações', icon: Bell, testId: 'admin-nav-notifications', roles: ['super_admin'] },
+    { to: '/admin/suporte', label: 'Suporte', icon: LifeBuoy, testId: 'admin-nav-support', roles: ['super_admin', 'editor', 'moderador'] },
 ];
 
 const ROLE_LABEL = { super_admin: 'Super Admin', editor: 'Editor', moderador: 'Moderador' };

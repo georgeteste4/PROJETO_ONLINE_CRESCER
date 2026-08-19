@@ -14,7 +14,7 @@ import {
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger,
 } from '../components/ui/dialog';
-import { LogOut, Trash2, Edit3, Shield, ChevronRight, Plus, ShieldCheck, Baby } from 'lucide-react';
+import { LogOut, Trash2, Edit3, Shield, ChevronRight, Plus, ShieldCheck, Baby, Bell, LifeBuoy } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Profile() {
@@ -87,6 +87,11 @@ export default function Profile() {
                             Abrir painel de administração
                         </Button>
                     )}
+                </div>
+
+                <div className="mt-4 rounded-3xl bg-white shadow-warm border border-[#EADFD8] divide-y divide-[#EADFD8] overflow-hidden">
+                    <button type="button" onClick={() => nav('/notificacoes')} className="w-full flex items-center gap-3 p-4 min-h-[58px] text-left hover:bg-[#FDF6F0]"><Bell size={20} className="text-coral" /><span className="flex-1"><span className="block font-medium text-ink">Notificações</span><span className="block text-xs text-ink-2 mt-0.5">Avisos, dicas e preferências de recebimento</span></span><ChevronRight size={18} className="text-ink-2" /></button>
+                    <button type="button" onClick={() => nav('/suporte')} className="w-full flex items-center gap-3 p-4 min-h-[58px] text-left hover:bg-[#FDF6F0]"><LifeBuoy size={20} className="text-sage" /><span className="flex-1"><span className="block font-medium text-ink">Contato e suporte</span><span className="block text-xs text-ink-2 mt-0.5">Envie uma mensagem e acompanhe o atendimento</span></span><ChevronRight size={18} className="text-ink-2" /></button>
                 </div>
 
                 {/* Children list */}

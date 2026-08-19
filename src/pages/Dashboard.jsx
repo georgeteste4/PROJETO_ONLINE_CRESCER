@@ -9,6 +9,7 @@ import {
     DropdownMenuTrigger, DropdownMenuSeparator,
 } from '../components/ui/dropdown-menu';
 import { Clock, ChevronRight, Baby, ChevronDown, Plus, Info, Sparkles, Shield, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
+import NotificationBell from '../components/NotificationBell';
 
 function greet() {
     const h = new Date().getHours();
@@ -73,20 +74,23 @@ export default function Dashboard() {
                         <p className="text-ink-2 text-sm">{greet()},</p>
                         <h1 className="font-display text-2xl font-bold text-ink">{user?.name || 'família'} 👋</h1>
                     </div>
-                    {isAdmin ? (
-                        <button
-                            data-testid="dashboard-admin-btn"
-                            onClick={() => nav('/admin')}
-                            className="h-11 px-3 rounded-full bg-ink text-white flex items-center gap-2 shadow-warm text-sm font-semibold"
-                        >
-                            <ShieldCheck size={16} />
-                            Admin
-                        </button>
-                    ) : (
-                        <div className="w-12 h-12 rounded-full bg-[#FDECE8] flex items-center justify-center">
-                            <Baby size={22} className="text-coral" />
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                        <NotificationBell />
+                        {isAdmin ? (
+                            <button
+                                data-testid="dashboard-admin-btn"
+                                onClick={() => nav('/admin')}
+                                className="h-11 px-3 rounded-full bg-ink text-white flex items-center gap-2 shadow-warm text-sm font-semibold"
+                            >
+                                <ShieldCheck size={16} />
+                                Admin
+                            </button>
+                        ) : (
+                            <div className="w-12 h-12 rounded-full bg-[#FDECE8] flex items-center justify-center">
+                                <Baby size={22} className="text-coral" />
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Child selector */}

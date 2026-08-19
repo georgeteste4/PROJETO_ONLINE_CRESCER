@@ -25,9 +25,13 @@ import AdminImport from './pages/admin/AdminImport';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminAIGeneration from './pages/admin/AdminAIGeneration';
 import AdminAudit from './pages/admin/AdminAudit';
+import AdminNotifications from './pages/admin/AdminNotifications';
+import AdminSupport from './pages/admin/AdminSupport';
 import Legal from './pages/Legal';
 import AcceptInvite from './pages/AcceptInvite';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
+import Notifications from './pages/Notifications';
+import Support from './pages/Support';
 
 const ADMIN_ROLES = ['super_admin', 'editor', 'moderador'];
 const CONTENT_ROLES = ['super_admin', 'editor'];
@@ -72,6 +76,8 @@ export default function App() {
                     <Route path="/atividade/:id" element={<ProtectedRoute requireChild><ActivityDetail /></ProtectedRoute>} />
                     <Route path="/progresso" element={<ProtectedRoute requireChild><Progress /></ProtectedRoute>} />
                     <Route path="/perfil" element={<ProtectedRoute requireChild><Profile /></ProtectedRoute>} />
+                    <Route path="/notificacoes" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+                    <Route path="/suporte" element={<ProtectedRoute><Support /></ProtectedRoute>} />
 
                     {/* Admin */}
                     <Route
@@ -88,6 +94,8 @@ export default function App() {
                         <Route path="sugestoes" element={<ProtectedRoute requireRole={CONTENT_ROLES}><AdminPinned /></ProtectedRoute>} />
                         <Route path="configuracoes" element={<ProtectedRoute requireRole={['super_admin']}><AdminSettings /></ProtectedRoute>} />
                         <Route path="auditoria" element={<ProtectedRoute requireRole={['super_admin']}><AdminAudit /></ProtectedRoute>} />
+                        <Route path="notificacoes" element={<ProtectedRoute requireRole={['super_admin']}><AdminNotifications /></ProtectedRoute>} />
+                        <Route path="suporte" element={<ProtectedRoute requireRole={ADMIN_ROLES}><AdminSupport /></ProtectedRoute>} />
                         <Route path="gerar-ia" element={<ProtectedRoute requireRole={CONTENT_ROLES}><AdminAIGeneration /></ProtectedRoute>} />
                     </Route>
 
