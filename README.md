@@ -115,4 +115,10 @@ A validação automatizada temporária confirmou criação, leitura pública pen
 
 Além do build de produção, foram executados testes de convites e promoção de papel, provedor nativo de e-mail, auditoria de atividades, campanhas de notificações, suporte com resposta administrativa e consulta PostgREST da relação usuário-ticket. O preview público foi atualizado e verificado nas rotas `/notificacoes` e `/suporte`, incluindo formulário de contato, estados vazios e navegação mobile.
 
+## Deploy permanente e atualização contínua
+
+O frontend está preparado para publicação no GitHub Pages em [https://georgeteste4.github.io/PROJETO_ONLINE_CRESCER/](https://georgeteste4.github.io/PROJETO_ONLINE_CRESCER/). O workflow `.github/workflows/deploy-pages.yml` executa `npm ci --legacy-peer-deps`, `npm run build`, empacota a pasta `build/` e publica o artefato no ambiente `github-pages` a cada push na branch `main`. Ele também aceita execução manual por `workflow_dispatch`.
+
+O procedimento completo, incluindo configuração inicial do Pages, caminho base do Create React App, fallback de rotas, validação, rollback, diagnóstico e proteção de secrets, está em [`docs/GITHUB_PAGES_DEPLOY.md`](docs/GITHUB_PAGES_DEPLOY.md). Para publicar uma alteração, valide localmente com `npm run build`, faça commit e execute `git push origin main`; a atualização online será iniciada automaticamente.
+
 O conteúdo do app é educativo e não substitui avaliação profissional.
