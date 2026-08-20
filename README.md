@@ -128,7 +128,7 @@ A validação automatizada temporária confirmou criação, leitura pública pen
 
 ## Verificações recentes
 
-Além do build de produção, foram executados testes de convites e promoção de papel, provedor nativo de e-mail, auditoria de atividades, campanhas de notificações, suporte com resposta administrativa e consulta PostgREST da relação usuário-ticket. O build de produção após a implantação dos skeletons foi concluído com sucesso, gerando `build/static/js/main.9a15011d.js` e `build/static/css/main.0a9d38ba.css`. O preview público deve ser revisitado após o deploy para confirmar a transição visual entre skeleton, conteúdo, erro e estado vazio.
+Além do build de produção, foram executados testes de convites e promoção de papel, provedor nativo de e-mail, auditoria de atividades, campanhas de notificações, suporte com resposta administrativa e consulta PostgREST da relação usuário-ticket. O build de produção após a implantação dos skeletons foi concluído com sucesso, gerando `build/static/js/main.9a15011d.js` e `build/static/css/main.0a9d38ba.css`. A validação visual do domínio oficial após o deploy está registrada em [`docs/VALIDATION_SKELETON_DEPLOY_2026-08-20.md`](docs/VALIDATION_SKELETON_DEPLOY_2026-08-20.md), incluindo a confirmação da tela pública, do workflow e da ausência de falhas no carregamento.
 
 ## Deploy permanente e atualização contínua
 
