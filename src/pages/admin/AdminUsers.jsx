@@ -17,6 +17,7 @@ import {
 import { Search, Ban, RotateCcw, Trash2, ShieldAlert, UserCog, Copy } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'sonner';
+import { AdminTableSkeleton, ListSkeleton } from '../../components/LoadingSkeletons';
 
 const ROLE_LABEL = { super_admin: 'Super Admin', editor: 'Editor', moderador: 'Moderador', user: 'Usuário' };
 const ROLE_COLOR = {
@@ -120,7 +121,7 @@ export default function AdminUsers() {
 
             <div className="rounded-3xl bg-white shadow-warm border border-[#EADFD8] overflow-hidden">
                 {loading ? (
-                    <div className="p-8 text-center text-ink-2">Carregando…</div>
+                    <AdminTableSkeleton rows={6} />
                 ) : users.length === 0 ? (
                     <div className="p-8 text-center text-ink-2">Nenhum usuário encontrado.</div>
                 ) : (
@@ -290,7 +291,7 @@ function UserDetailsDialog({ user, onClose }) {
                     <DialogTitle className="font-display">Detalhes do usuário</DialogTitle>
                 </DialogHeader>
                 {!details ? (
-                    <p className="text-ink-2 text-sm">Carregando…</p>
+                    <ListSkeleton compact count={2} />
                 ) : (
                     <div className="space-y-3">
                         <div>

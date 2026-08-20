@@ -12,6 +12,7 @@ import {
 } from '../../components/ui/alert-dialog';
 import { Plus, Edit3, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageLoading } from '../../components/LoadingSkeletons';
 
 const empty = { slug: '', nome: '', cor: '#E87A5D', icone: 'Sparkles' };
 
@@ -20,13 +21,17 @@ export default function AdminCategories() {
     const [editing, setEditing] = useState(null);
     const [form, setForm] = useState(empty);
     const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     const load = async () => {
+        setLoading(true);
         try {
             const { data } = await api.get('/categories');
             setItems(data);
         } catch (e) {
             toast.error(formatApiError(e.response?.data?.detail));
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -54,6 +59,8 @@ export default function AdminCategories() {
             setSaving(false);
         }
     };
+
+    if (loading) return <PageLoading variant="grid" admin />;
 
     const del = async (it) => {
         try {

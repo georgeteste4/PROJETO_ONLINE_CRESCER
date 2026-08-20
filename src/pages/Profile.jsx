@@ -16,9 +16,10 @@ import {
 } from '../components/ui/dialog';
 import { LogOut, Trash2, Edit3, Shield, ChevronRight, Plus, ShieldCheck, Baby, Bell, LifeBuoy } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageLoading } from '../components/LoadingSkeletons';
 
 export default function Profile() {
-    const { user, children, activeChild, isAdmin, refreshChildren, logout, deleteAccount } = useAuth();
+    const { user, children, activeChild, isAdmin, childrenLoaded, refreshChildren, logout, deleteAccount } = useAuth();
     const nav = useNavigate();
     const [editing, setEditing] = useState(null); // child being edited
     const [nome, setNome] = useState('');
@@ -68,6 +69,8 @@ export default function Profile() {
         toast.success('Sua conta foi excluída.');
         nav('/login');
     };
+
+    if (!childrenLoaded) return <AppShell><div className="px-6 pt-10 safe-bottom"><PageLoading variant="form" /></div><BottomNav /></AppShell>;
 
     return (
         <AppShell>

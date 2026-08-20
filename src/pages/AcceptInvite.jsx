@@ -8,6 +8,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { ShieldCheck, Mail, AlertCircle, CheckCircle2, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageLoading } from '../components/LoadingSkeletons';
 
 const ROLE_LABEL = { super_admin: 'Super Admin', editor: 'Editor', moderador: 'Moderador' };
 
@@ -68,7 +69,7 @@ export default function AcceptInvite() {
         }
     };
 
-    if (loadingInv) return <AppShell><div className="p-8 text-center text-ink-2" aria-busy="true">Carregando convite…</div></AppShell>;
+    if (loadingInv) return <AppShell><div className="px-6 pt-10"><PageLoading variant="content" /></div></AppShell>;
 
     if (error && !invite) return <AppShell><div className="px-6 pt-16 pb-10 min-h-screen flex flex-col"><div className="mx-auto w-20 h-20 rounded-3xl bg-[#FDECE8] flex items-center justify-center"><AlertCircle size={40} className="text-destructive" /></div><h1 className="mt-6 font-display text-2xl font-bold text-ink text-center">Convite inválido</h1><p data-testid="invite-error" className="mt-2 text-ink-2 text-center">{error}</p><Button onClick={() => nav('/login')} className="mt-8 rounded-full bg-coral hover:bg-[#D9684C] mx-auto h-12 px-8">Ir para o login</Button></div></AppShell>;
 

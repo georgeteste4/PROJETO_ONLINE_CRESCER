@@ -62,6 +62,12 @@ npm run build
 
 O projeto usa Create React App com CRACO. O comando `npm install --legacy-peer-deps` é recomendado porque o conjunto original contém conflitos de peer dependencies entre `react-day-picker`, `date-fns` e versões de ESLint.
 
+## Skeleton loading e estados de carregamento
+
+Todas as páginas dinâmicas agora utilizam skeletons reutilizáveis antes de renderizar dados vindos do Supabase. O padrão está centralizado em `src/components/LoadingSkeletons.jsx` e cobre dashboard, listas, detalhes, progresso, formulários, tabelas administrativas, configurações e estados globais de autenticação. Os guards de rota também exibem um skeleton enquanto a sessão e o contexto da criança são resolvidos, evitando telas vazias ou redirecionamentos visualmente abruptos.
+
+Os skeletons usam a paleta quente do Crescer+, são mobile-first e incluem `role="status"`, `aria-live="polite"` e texto acessível para leitores de tela. Estados de erro, vazio e submissão de botões continuam separados do carregamento inicial. O guia completo de implementação e manutenção está em [`docs/LOADING_SKELETONS.md`](docs/LOADING_SKELETONS.md). Antes de publicar uma nova página dinâmica, mantenha o estado inicial como carregando, finalize a consulta em `finally` e escolha a variante que mais se aproxima do conteúdo final.
+
 ## Observações de segurança
 
 O frontend não recebe acesso a operações privilegiadas do Auth. A auditoria de segurança do Supabase não encontrou funções internas expostas; permanece apenas o aviso esperado da RPC autenticada de exclusão da própria conta, que valida `auth.uid()` e só remove o usuário da sessão atual.
@@ -122,7 +128,7 @@ A validação automatizada temporária confirmou criação, leitura pública pen
 
 ## Verificações recentes
 
-Além do build de produção, foram executados testes de convites e promoção de papel, provedor nativo de e-mail, auditoria de atividades, campanhas de notificações, suporte com resposta administrativa e consulta PostgREST da relação usuário-ticket. O preview público foi atualizado e verificado nas rotas `/notificacoes` e `/suporte`, incluindo formulário de contato, estados vazios e navegação mobile.
+Além do build de produção, foram executados testes de convites e promoção de papel, provedor nativo de e-mail, auditoria de atividades, campanhas de notificações, suporte com resposta administrativa e consulta PostgREST da relação usuário-ticket. O build de produção após a implantação dos skeletons foi concluído com sucesso, gerando `build/static/js/main.9a15011d.js` e `build/static/css/main.0a9d38ba.css`. O preview público deve ser revisitado após o deploy para confirmar a transição visual entre skeleton, conteúdo, erro e estado vazio.
 
 ## Deploy permanente e atualização contínua
 

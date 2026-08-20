@@ -31,6 +31,7 @@ import AdminSupport from './pages/admin/AdminSupport';
 import Legal from './pages/Legal';
 import AcceptInvite from './pages/AcceptInvite';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
+import { PageLoading } from './components/LoadingSkeletons';
 import Notifications from './pages/Notifications';
 import Support from './pages/Support';
 
@@ -40,7 +41,7 @@ const USER_MGMT_ROLES = ['super_admin', 'moderador'];
 
 function PublicOnly({ children }) {
     const { user } = useAuth();
-    if (user === null) return null;
+    if (user === null) return <PageLoading variant="content" />;
     if (user) {
         const isAdmin = ['super_admin', 'editor', 'moderador'].includes(user.role);
         return <Navigate to={isAdmin ? '/admin' : '/'} replace />;
@@ -50,7 +51,7 @@ function PublicOnly({ children }) {
 
 function OnboardingGate() {
     const { user } = useAuth();
-    if (user === null) return null;
+    if (user === null) return <PageLoading variant="content" />;
     if (user) {
         const isAdmin = ['super_admin', 'editor', 'moderador'].includes(user.role);
         return <Navigate to={isAdmin ? '/admin' : '/'} replace />;

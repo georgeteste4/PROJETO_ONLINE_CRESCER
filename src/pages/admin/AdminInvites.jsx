@@ -16,6 +16,7 @@ import {
 } from '../../components/ui/alert-dialog';
 import { Mail, Plus, Copy, Trash2, Check, X, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { AdminTableSkeleton } from '../../components/LoadingSkeletons';
 
 const ROLE_LABEL = { super_admin: 'Super Admin', editor: 'Editor', moderador: 'Moderador' };
 
@@ -103,7 +104,7 @@ export default function AdminInvites() {
 
             <div className="rounded-3xl bg-white shadow-warm border border-[#EADFD8] overflow-hidden">
                 {loading ? (
-                    <div className="p-8 text-center text-ink-2">Carregando…</div>
+                    <AdminTableSkeleton rows={5} />
                 ) : loadError ? (
                     <div className="p-10 text-center"><X size={32} className="mx-auto text-destructive" /><p className="mt-3 font-display font-bold text-ink">Não foi possível carregar os convites</p><p className="text-sm text-ink-2 mt-1">{loadError}</p><Button onClick={load} className="mt-4 rounded-full bg-ink"><Clock size={16} className="mr-2" /> Tentar novamente</Button></div>
                 ) : items.length === 0 ? (

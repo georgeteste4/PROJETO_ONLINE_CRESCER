@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '../../lib/api';
 import { AlertCircle, Users, Baby, BookOpen, CheckCircle2, Heart, Ban, Sparkles, TrendingUp, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
+import { AdminDashboardSkeleton } from '../../components/LoadingSkeletons';
 
 export default function AdminDashboard() {
     const [stats, setStats] = useState(null);
@@ -45,5 +46,4 @@ export default function AdminDashboard() {
     );
 }
 
-function AdminDashboardSkeleton() { return <div className="space-y-6" aria-busy="true"><div className="h-16 w-80 rounded-2xl bg-white/70 animate-pulse" /><div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-32 rounded-3xl bg-white/70 animate-pulse" />)}</div><div className="grid md:grid-cols-3 gap-4"><div className="h-24 rounded-3xl bg-white/70 animate-pulse" /><div className="h-24 rounded-3xl bg-white/70 animate-pulse" /><div className="h-24 rounded-3xl bg-white/70 animate-pulse" /></div><div className="grid md:grid-cols-2 gap-4"><div className="h-80 rounded-3xl bg-white/70 animate-pulse" /><div className="h-80 rounded-3xl bg-white/70 animate-pulse" /></div></div>; }
 function ActivityCard({ label, value, icon: Icon, color, testId }) { return <div data-testid={testId} className="p-5 rounded-3xl bg-white shadow-warm border border-[#EADFD8] flex items-center gap-4"><div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: `${color}22`, color }}><Icon size={22} /></div><div><p className="font-display text-2xl font-bold text-ink">{value}</p><p className="text-xs text-ink-2">{label}</p></div></div>; }

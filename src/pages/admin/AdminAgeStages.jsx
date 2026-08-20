@@ -13,6 +13,7 @@ import {
 } from '../../components/ui/alert-dialog';
 import { Plus, Edit3, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageLoading } from '../../components/LoadingSkeletons';
 
 const empty = {
     slug: '', titulo: '', descricao: '',
@@ -25,10 +26,16 @@ export default function AdminAgeStages() {
     const [editing, setEditing] = useState(null);
     const [form, setForm] = useState(empty);
     const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     const load = async () => {
-        const { data } = await api.get('/age-stages');
-        setItems(data);
+        setLoading(true);
+        try {
+            const { data } = await api.get('/age-stages');
+            setItems(data);
+        } finally {
+            setLoading(false);
+        }
     };
     useEffect(() => { load(); }, []);
 
@@ -61,6 +68,8 @@ export default function AdminAgeStages() {
             setSaving(false);
         }
     };
+
+    if (loading) return <PageLoading variant="table" admin />;
 
     const del = async (it) => {
         try {

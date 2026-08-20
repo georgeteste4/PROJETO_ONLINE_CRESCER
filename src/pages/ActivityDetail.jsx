@@ -5,6 +5,7 @@ import AppShell from '../components/AppShell';
 import { Button } from '../components/ui/button';
 import { ArrowLeft, Heart, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageLoading } from '../components/LoadingSkeletons';
 
 const CAT_COLORS = {
     cat_sensorial: '#F2CC8F',
@@ -72,7 +73,7 @@ export default function ActivityDetail() {
             </AppShell>
         );
     }
-    if (!activity) return <AppShell><div className="p-6 text-ink-2">Carregando…</div></AppShell>;
+    if (!activity) return <AppShell><div className="px-6 pt-8"><PageLoading variant="detail" /></div></AppShell>;
 
     const color = CAT_COLORS[activity.category_id];
 

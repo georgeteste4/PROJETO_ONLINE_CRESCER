@@ -16,6 +16,7 @@ import {
 } from '../../components/ui/alert-dialog';
 import { Plus, Edit3, Trash2, Search, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import { AdminTableSkeleton } from '../../components/LoadingSkeletons';
 
 const empty = {
     age_stage_id: '',
@@ -174,7 +175,7 @@ export default function AdminActivities() {
 
             <div className="rounded-3xl bg-white shadow-warm border border-[#EADFD8] overflow-hidden">
                 {loading ? (
-                    <div className="p-8 text-center text-ink-2">Carregando…</div>
+                    <AdminTableSkeleton rows={6} />
                 ) : items.length === 0 ? (
                     <div className="p-8 text-center text-ink-2">Nenhuma atividade.</div>
                 ) : (

@@ -7,6 +7,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { SettingsSkeleton } from '../../components/LoadingSkeletons';
 
 const SETTING_FIELDS = [
     { key: 'ai.default_model', label: 'Modelo padrão', description: 'Slug do modelo OpenRouter usado quando o gerador não recebe outro modelo.', type: 'text', placeholder: 'openai/gpt-4o-mini' },
@@ -169,7 +170,7 @@ export default function AdminSettings() {
         }
     };
 
-    if (loading) return <div className="space-y-4" aria-busy="true"><div className="h-10 w-64 rounded-2xl bg-white/70 animate-pulse" /><div className="h-48 rounded-3xl bg-white/70 animate-pulse" /><div className="h-64 rounded-3xl bg-white/70 animate-pulse" /></div>;
+    if (loading) return <SettingsSkeleton />;
     if (error) return <div className="rounded-3xl bg-white p-8 border border-[#EADFD8] shadow-warm text-center"><AlertCircle className="mx-auto text-coral mb-3" size={28} /><h1 className="font-display text-xl font-bold text-ink">Não foi possível carregar as configurações</h1><p className="text-ink-2 mt-2">{error}</p><Button onClick={load} className="mt-5 rounded-full bg-ink"><RefreshCw size={16} className="mr-2" /> Tentar novamente</Button></div>;
 
     return <div className="space-y-6">

@@ -6,6 +6,7 @@ import {
 } from '../../components/ui/select';
 import { Pin, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageLoading } from '../../components/LoadingSkeletons';
 
 export default function AdminPinned() {
     const [stages, setStages] = useState([]);
@@ -13,19 +14,33 @@ export default function AdminPinned() {
     const [pinned, setPinned] = useState([]);
     const [selectedStage, setSelectedStage] = useState('');
     const [toAdd, setToAdd] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [loadingPinned, setLoadingPinned] = useState(false);
 
     useEffect(() => {
-        api.get('/age-stages').then((r) => {
-            setStages(r.data);
-            if (r.data.length && !selectedStage) setSelectedStage(r.data[0].id);
-        });
-        api.get('/admin/activities').then((r) => setActivities(r.data));
+        const loadOptions = async () => {
+            setLoading(true);
+            try {
+                const [stageResponse, activityResponse] = await Promise.all([api.get('/age-stages'), api.get('/admin/activities')]);
+                setStages(stageResponse.data || []);
+                setActivities(activityResponse.data || []);
+                if (stageResponse.data?.length && !selectedStage) setSelectedStage(stageResponse.data[0].id);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadOptions();
     }, []); // eslint-disable-line
 
     const load = async () => {
         if (!selectedStage) return;
-        const { data } = await api.get('/admin/pinned-suggestions', { params: { age_stage_id: selectedStage } });
-        setPinned(data);
+        setLoadingPinned(true);
+        try {
+            const { data } = await api.get('/admin/pinned-suggestions', { params: { age_stage_id: selectedStage } });
+            setPinned(data || []);
+        } finally {
+            setLoadingPinned(false);
+        }
     };
     useEffect(() => { load(); }, [selectedStage]); // eslint-disable-line
 
@@ -36,6 +51,8 @@ export default function AdminPinned() {
     const actMap = useMemo(() => Object.fromEntries(activities.map((a) => [a.id, a])), [activities]);
     const pinnedIds = new Set(pinned.map((p) => p.activity_id));
     const available = stageActs.filter((a) => !pinnedIds.has(a.id));
+
+    if (loading || loadingPinned) return <PageLoading variant="table" admin />;
 
     const doPin = async () => {
         if (!toAdd) return;

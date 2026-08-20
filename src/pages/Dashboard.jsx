@@ -10,6 +10,7 @@ import {
 } from '../components/ui/dropdown-menu';
 import { Clock, ChevronRight, Baby, ChevronDown, Plus, Info, Sparkles, Shield, ShieldCheck, RefreshCw, AlertCircle } from 'lucide-react';
 import NotificationBell from '../components/NotificationBell';
+import { DashboardSkeleton, ListSkeleton } from '../components/LoadingSkeletons';
 
 function greet() {
     const h = new Date().getHours();
@@ -35,6 +36,7 @@ export default function Dashboard() {
     const [stage, setStage] = useState(null);
     const [tab, setTab] = useState('geral'); // geral | desenvolvimento | dicas | cuidados
     const [loadingSuggestions, setLoadingSuggestions] = useState(true);
+    const [loadingStage, setLoadingStage] = useState(true);
     const [suggestionsError, setSuggestionsError] = useState('');
     const [stageError, setStageError] = useState('');
 
@@ -52,7 +54,8 @@ export default function Dashboard() {
     };
 
     const loadStage = async () => {
-        if (!activeChild?.age_stage_id) { setStage(null); setStageError(''); return; }
+        setLoadingStage(true);
+        if (!activeChild?.age_stage_id) { setStage(null); setStageError(''); setLoadingStage(false); return; }
         setStageError('');
         try {
             const { data } = await api.get(`/age-stages/${activeChild.age_stage_id}`);
@@ -60,11 +63,15 @@ export default function Dashboard() {
         } catch (error) {
             setStage(null);
             setStageError(error.response?.data?.detail || 'Não foi possível carregar os detalhes desta fase.');
+        } finally {
+            setLoadingStage(false);
         }
     };
 
     useEffect(() => { loadSuggestions(); }, [activeChild?.id]); // eslint-disable-line
     useEffect(() => { loadStage(); }, [activeChild?.age_stage_id]); // eslint-disable-line
+
+    if (loadingSuggestions || loadingStage) return <AppShell><div className="px-6 pt-10 safe-bottom"><DashboardSkeleton /></div><BottomNav /></AppShell>;
 
     return (
         <AppShell>
@@ -223,7 +230,7 @@ export default function Dashboard() {
                     </div>
 
                     {loadingSuggestions ? (
-                        <div className="mt-4 space-y-3" aria-busy="true"><div className="h-44 rounded-3xl bg-white/70 animate-pulse" /><div className="h-20 rounded-3xl bg-white/70 animate-pulse" /><div className="h-20 rounded-3xl bg-white/70 animate-pulse" /></div>
+                        <div className="mt-4"><ListSkeleton count={3} /></div>
                     ) : suggestionsError ? (
                         <div className="mt-4 p-6 rounded-3xl bg-white border border-[#EADFD8] text-center"><AlertCircle className="mx-auto text-coral" size={24} /><p className="font-display font-bold text-ink mt-2">Não conseguimos carregar as sugestões</p><p className="text-sm text-ink-2 mt-1">{suggestionsError}</p><button type="button" onClick={loadSuggestions} className="mt-4 inline-flex items-center gap-2 h-11 px-4 rounded-full bg-ink text-white text-sm font-bold"><RefreshCw size={15} /> Tentar novamente</button></div>
                     ) : suggestions.length === 0 ? (

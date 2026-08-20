@@ -3,6 +3,7 @@ import api from '../lib/api';
 import AppShell from '../components/AppShell';
 import BottomNav from '../components/BottomNav';
 import { AlertCircle, RefreshCw, TrendingUp, Sparkles } from 'lucide-react';
+import { ProgressSkeleton } from '../components/LoadingSkeletons';
 
 export default function Progress() {
     const [summary, setSummary] = useState(null);
@@ -38,5 +39,4 @@ export default function Progress() {
     );
 }
 
-function ProgressSkeleton() { return <div className="mt-6 space-y-8" aria-busy="true"><div className="grid grid-cols-2 gap-3"><div className="h-32 rounded-3xl bg-white/70 animate-pulse" /><div className="h-32 rounded-3xl bg-white/70 animate-pulse" /></div><div><div className="h-6 w-40 rounded bg-white/70 animate-pulse" /><div className="mt-4 h-64 rounded-3xl bg-white/70 animate-pulse" /></div></div>; }
 function StatCard({ label, value, accent, testId }) { return <div data-testid={testId} className="p-5 rounded-3xl bg-white shadow-warm border border-[#EADFD8]"><p className="text-xs font-semibold uppercase tracking-wide" style={{ color: accent }}>{label}</p><p className="mt-2 font-display text-4xl font-bold text-ink">{value}</p><p className="text-xs text-ink-2 mt-1">atividade{value === 1 ? '' : 's'}</p></div>; }
